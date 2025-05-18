@@ -18,6 +18,27 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    status: 'success',
+    message: 'Welcome to Experts in the City API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      experts: '/api/experts',
+      posts: '/api/posts',
+      comments: '/api/comments',
+      likes: '/api/likes',
+      follows: '/api/follows',
+      notifications: '/api/notifications',
+    },
+    documentation: 'API documentation coming soon',
+    health: '/health'
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
