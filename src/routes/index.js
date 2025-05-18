@@ -1,12 +1,12 @@
 const express = require('express');
 const userRoutes = require('./users');
-const mentorRoutes = require('./mentors');
+const expertRoutes = require('./experts');
 const postRoutes = require('./posts');
 const commentRoutes = require('./comments');
 const likeRoutes = require('./likes');
 const followRoutes = require('./follows');
-const tagRoutes = require('./tags');
 const notificationRoutes = require('./notifications');
+const authRoutes = require('./auth');
 
 const router = express.Router();
 
@@ -19,14 +19,16 @@ router.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Expert In The City API' });
 });
 
+// Auth routes
+router.use('/auth', authRoutes);
+
 // API routes
 router.use('/users', userRoutes);
-router.use('/mentors', mentorRoutes);
+router.use('/experts', expertRoutes);
 router.use('/posts', postRoutes);
 router.use('/comments', commentRoutes);
 router.use('/likes', likeRoutes);
 router.use('/follows', followRoutes);
-router.use('/tags', tagRoutes);
 router.use('/notifications', notificationRoutes);
 
 module.exports = router;

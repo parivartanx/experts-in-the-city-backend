@@ -1,11 +1,8 @@
-const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
 const { AppError, ErrorCodes, HttpStatus } = require('../utils/errors');
 const { catchAsync } = require('./errorHandler');
+const TokenHandler = require('../utils/tokenHandler');
 
-const prisma = new PrismaClient();
-
-const auth = catchAsync(async (req, res, next) => {
+const isAuthenticated = catchAsync(async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   
   if (!token) {
@@ -16,37 +13,32 @@ const auth = catchAsync(async (req, res, next) => {
     );
   }
 
-  let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { user } = await TokenHandler.verifyAccessToken(token);
+    
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      role: user.role
+    };
+    req.token = token;
+    next();
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new AppError(
+        'Token expired',
+        HttpStatus.UNAUTHORIZED,
+        ErrorCodes.TOKEN_EXPIRED
+      );
+    }
     throw new AppError(
-      'Invalid or expired token',
+      'Invalid token',
       HttpStatus.UNAUTHORIZED,
       ErrorCodes.INVALID_TOKEN
     );
   }
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true
-      }
-    });
-
-    if (!user) {
-      throw new AppError(
-        'User not found',
-        HttpStatus.UNAUTHORIZED,
-        ErrorCodes.USER_NOT_FOUND
-      );
-    }
-
-    req.user = user;
-    req.token = token;
-    next();
 });
 
-module.exports = auth;
+module.exports = isAuthenticated;

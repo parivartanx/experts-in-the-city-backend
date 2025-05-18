@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const auth = require('../middleware/auth');
+const isAuthenticated = require('../middleware/auth');
 const { queryHandler } = require('../middleware/queryHandler');
 const postController = require('../controllers/postController');
 
@@ -27,22 +27,22 @@ const upload = multer({
   }
 });
 
+// List all posts with filters (public)
+router.get('/', queryHandler, postController.listPosts);
+
 // Create post (protected)
-router.post('/', auth, upload.single('image'), postController.createPost);
+router.post('/', isAuthenticated, upload.single('image'), postController.createPost);
+
+// Add tags to post (protected)
+router.post('/:id/tags', isAuthenticated, postController.addTags);
 
 // Get post by ID (public)
 router.get('/:id', postController.getPost);
 
-// List all posts with filters (public)
-router.get('/', queryHandler, postController.getAllPosts);
-
 // Update post (protected)
-router.patch('/:id', auth, upload.single('image'), postController.updatePost);
+router.patch('/:id', isAuthenticated, upload.single('image'), postController.updatePost);
 
 // Delete post (protected)
-router.delete('/:id', auth, postController.deletePost);
-
-// Add tags to post (protected)
-router.post('/:id/tags', auth, postController.addTags);
+router.delete('/:id', isAuthenticated, postController.deletePost);
 
 module.exports = router;

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { isAuthenticated } = require('../middleware/authMiddleware');
+const isAuthenticated = require('../middleware/auth');
 const {
   createExpertProfile,
   getExpertProfile,
@@ -13,8 +13,7 @@ router.get('/', listExperts);
 router.get('/:id', getExpertProfile);
 
 // Protected routes
-router.use(isAuthenticated);
-router.post('/profile', createExpertProfile);
-router.patch('/profile', updateExpertProfile);
+router.post('/profile', isAuthenticated, createExpertProfile);
+router.patch('/profile', isAuthenticated, updateExpertProfile);
 
 module.exports = router;

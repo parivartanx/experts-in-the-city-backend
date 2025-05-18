@@ -179,9 +179,49 @@ const deleteComment = catchAsync(async (req, res) => {
     });
 });
 
+const updateComment = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+
+    // Check if comment exists and belongs to user
+    const existingComment = await prisma.comment.findUnique({
+      where: { id },
+      select: { authorId: true }
+    });
+
+    if (!existingComment) {
+      throw { status: 404, message: 'Comment not found' };
+    }
+
+    if (existingComment.authorId !== userId) {
+      throw { status: 403, message: 'You can only update your own comments' };
+    }
+
+    const comment = await prisma.comment.update({
+      where: { id },
+      data: { content },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { comment }
+    });
+});
+
 module.exports = {
   createComment,
   getComments,
   replyToComment,
-  deleteComment
+  deleteComment,
+  updateComment
 };

@@ -1,20 +1,21 @@
 const express = require('express');
-const auth = require('../middleware/auth');
+const isAuthenticated = require('../middleware/auth');
 const { queryHandler } = require('../middleware/queryHandler');
 const likeController = require('../controllers/likeController');
 
 const router = express.Router();
 
-// Like a post (protected)
-router.post('/post/:id', auth, likeController.likePost);
+// All like routes are protected
+router.use(isAuthenticated);
 
-// Unlike a post (protected)
-router.delete('/post/:id', auth, likeController.unlikePost);
+// Get all posts liked by the authenticated user
+router.get('/user/me', queryHandler, likeController.getUserLikes);
 
-// Get all likes for a post (public)
+// Like/Unlike post routes
+router.post('/post/:id', likeController.likePost);
+router.delete('/post/:id', likeController.unlikePost);
+
+// Get all likes for a post
 router.get('/post/:id', queryHandler, likeController.getPostLikes);
-
-// Get all posts liked by the authenticated user (protected)
-router.get('/user/me', auth, queryHandler, likeController.getUserLikes);
 
 module.exports = router;

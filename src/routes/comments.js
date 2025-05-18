@@ -1,20 +1,20 @@
 const express = require('express');
-const auth = require('../middleware/auth');
-const { queryHandler } = require('../middleware/queryHandler');
+const isAuthenticated = require('../middleware/auth');
 const commentController = require('../controllers/commentController');
 
 const router = express.Router();
 
-// Create comment on a post (protected)
-router.post('/post/:id', auth, commentController.createComment);
+// All comment routes are protected
+router.use(isAuthenticated);
 
-// Get all comments for a post (public)
-router.get('/post/:id', queryHandler, commentController.getComments);
+// Get comments for a post
+router.get('/post/:postId', commentController.getComments);
 
-// Reply to a comment (protected)
-router.post('/:id/reply', auth, commentController.replyToComment);
+// Create comment on a post
+router.post('/post/:postId', commentController.createComment);
 
-// Delete a comment (protected)
-router.delete('/:id', auth, commentController.deleteComment);
+// Update/Delete specific comment
+router.patch('/:commentId', commentController.updateComment);
+router.delete('/:commentId', commentController.deleteComment);
 
 module.exports = router;

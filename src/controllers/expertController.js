@@ -54,6 +54,7 @@ const createExpertProfile = catchAsync(async (req, res) => {
   });
 });
 
+
 const getExpertProfile = catchAsync(async (req, res) => {
   const { id } = req.params;
 
@@ -67,7 +68,14 @@ const getExpertProfile = catchAsync(async (req, res) => {
           email: true,
           avatar: true,
           bio: true,
-          role: true
+          role: true,
+          createdAt: true,
+          _count: {
+            select: {
+              followers: true,
+              following: true
+            }
+          }
         }
       }
     }
@@ -77,9 +85,22 @@ const getExpertProfile = catchAsync(async (req, res) => {
     throw { status: 404, message: 'Expert profile not found' };
   }
 
+  // Transform the response to include follower and following counts
+  const transformedExpert = {
+    ...expert,
+    user: {
+      ...expert.user,
+      followersCount: expert.user._count.followers,
+      followingCount: expert.user._count.following
+    }
+  };
+
+  // Remove the _count field from the response
+  delete transformedExpert.user._count;
+
   res.json({
     status: 'success',
-    data: { expert }
+    data: { expert: transformedExpert }
   });
 });
 
@@ -90,9 +111,7 @@ const listExperts = catchAsync(async (req, res) => {
   
   // Filter by expertise if provided
   if (expertise) {
-    where.expertise = {
-      has: expertise
-    };
+    where.role = 'EXPERT';
   }
 
   // Add search filter if provided
@@ -125,7 +144,8 @@ const listExperts = catchAsync(async (req, res) => {
           email: true,
           avatar: true,
           bio: true,
-          role: true
+          role: true,
+          createdAt: true,
         }
       }
     },

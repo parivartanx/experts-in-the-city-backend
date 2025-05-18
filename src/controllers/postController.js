@@ -258,53 +258,46 @@ const deletePost = catchAsync(async (req, res) => {
   }
 });
 
-const addTags = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { tags } = req.body;
-    const userId = req.user.id;
+const addTags = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { tags } = req.body;
+  const userId = req.user.id;
 
-    const post = await prisma.post.findUnique({
-      where: { id }
-    });
+  // Check if post exists and belongs to user
+  const existingPost = await prisma.post.findUnique({
+    where: { id },
+    select: { authorId: true }
+  });
 
-    if (!post) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Post not found'
-      });
-    }
-
-    if (post.authorId !== userId) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Not authorized to modify this post'
-      });
-    }
-
-    const updatedPost = await prisma.post.update({
-      where: { id },
-      data: {
-        tags: {
-          connect: tags.map(tagId => ({ id: tagId }))
-        }
-      },
-      include: {
-        tags: true
-      }
-    });
-
-    res.json({
-      status: 'success',
-      data: { post: updatedPost }
-    });
-  } catch (error) {
-    res.status(400).json({
-      status: 'error',
-      message: error.message
-    });
+  if (!existingPost) {
+    throw { status: 404, message: 'Post not found' };
   }
-};
+
+  if (existingPost.authorId !== userId) {
+    throw { status: 403, message: 'You can only add tags to your own posts' };
+  }
+
+  // Create or connect tags
+  const updatedPost = await prisma.post.update({
+    where: { id },
+    data: {
+      tags: {
+        connectOrCreate: tags.map(tag => ({
+          where: { name: tag },
+          create: { name: tag }
+        }))
+      }
+    },
+    include: {
+      tags: true
+    }
+  });
+
+  res.json({
+    status: 'success',
+    data: { post: updatedPost }
+  });
+});
 
 module.exports = {
   createPost,

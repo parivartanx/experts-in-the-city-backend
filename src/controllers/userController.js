@@ -6,81 +6,39 @@ const { catchAsync } = require('../middleware/errorHandler');
 
 const prisma = new PrismaClient();
 
-const register = catchAsync(async (req, res) => {
-  const { email, password, name } = req.body;
 
-  // Check if user exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email }
-  });
-
-  if (existingUser) {
-    throw { status: 400, message: 'Email already in use' };
-  }
-
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Create user
-  const user = await prisma.user.create({
-    data: {
-      email,
-      password: hashedPassword,
-      name
-    },
+// public controller
+const getAllUsers = catchAsync(async (req, res, next) => {
+  const users = await prisma.user.findMany({
     select: {
       id: true,
-      email: true,
       name: true,
-      avatar: true
+      email: true,
+      avatar: true,
+      bio: true,
+      role: true,
+      createdAt: true,
     }
   });
-
-  // Generate token
-  const token = jwt.sign(
-    { id: user.id },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
-  );
-
-  res.status(201).json({
-    status: 'success',
-    data: { user, token }
-  });
+  res.json({ status: 'success', data: { users } });
 });
 
-const login = catchAsync(async (req, res) => {
-  const { email, password } = req.body;
-
-  // Find user
+const getUserById = catchAsync(async (req, res, next) => {
   const user = await prisma.user.findUnique({
-    where: { email }
+    where: { id: req.params.id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatar: true,
+      createdAt: true,
+    }
   });
-
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    throw { status: 401, message: 'Invalid email or password' };
-  }
-
-  // Generate token
-  const token = jwt.sign(
-    { id: user.id },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
-  );
-
-  const userData = {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    avatar: user.avatar
-  };
-
-  res.json({
-    status: 'success',
-    data: { user: userData, token }
-  });
+  res.json({ status: 'success', data: { user } });
 });
 
+
+// protected controller
 const getProfile = catchAsync(async (req, res) => {
   res.json({
     status: 'success',
@@ -91,6 +49,13 @@ const getProfile = catchAsync(async (req, res) => {
 const updateProfile = catchAsync(async (req, res) => {
   const updates = Object.keys(req.body);
   const allowedUpdates = ['name', 'bio', 'avatar'];
+  const expertUpdates = ['expertise', 'experience', 'hourlyRate', 'about'];
+  
+  // If user is an expert, allow expert-specific updates
+  if (req.user.role === 'EXPERT') {
+    allowedUpdates.push(...expertUpdates);
+  }
+
   const isValidOperation = updates.every(update => allowedUpdates.includes(update));
 
   if (!isValidOperation) {
@@ -98,15 +63,41 @@ const updateProfile = catchAsync(async (req, res) => {
   }
 
   try {
+    // Separate expert details from regular user updates
+    const userUpdates = {};
+    const expertDetailsUpdates = {};
+
+    updates.forEach(update => {
+      if (expertUpdates.includes(update)) {
+        expertDetailsUpdates[update] = req.body[update];
+      } else {
+        userUpdates[update] = req.body[update];
+      }
+    });
+
     const user = await prisma.user.update({
       where: { id: req.user.id },
-      data: req.body,
+      data: {
+        ...userUpdates,
+        expertDetails: req.user.role === 'EXPERT' && Object.keys(expertDetailsUpdates).length > 0
+          ? {
+              upsert: {
+                create: expertDetailsUpdates,
+                update: expertDetailsUpdates
+              }
+            }
+          : undefined
+      },
       select: {
         id: true,
         email: true,
         name: true,
         bio: true,
-        avatar: true
+        avatar: true,
+        role: true,
+        expertDetails: true,
+        createdAt: true,
+        updatedAt: true
       }
     });
 
@@ -156,8 +147,8 @@ const deleteAccount = catchAsync(async (req, res) => {
 });
 
 module.exports = {
-  register,
-  login,
+  getAllUsers,
+  getUserById,
   getProfile,
   updateProfile,
   changePassword,

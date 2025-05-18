@@ -1,20 +1,18 @@
 const express = require('express');
-const auth = require('../middleware/auth');
-const { queryHandler } = require('../middleware/queryHandler');
+const isAuthenticated = require('../middleware/auth');
 const followController = require('../controllers/followController');
 
 const router = express.Router();
 
-// Follow a user (protected)
-router.post('/user/:id', auth, followController.followUser);
+// All follow routes are protected
+router.use(isAuthenticated);
 
-// Unfollow a user (protected)
-router.delete('/user/:id', auth, followController.unfollowUser);
+// Follow/Unfollow routes
+router.post('/:id', followController.followExpert);
+router.delete('/:id', followController.unfollowExpert);
 
-// Get user's followers (public)
-router.get('/user/:id/followers', queryHandler, followController.getFollowers);
-
-// Get user's following (public)
-router.get('/user/:id/following', queryHandler, followController.getFollowing);
+// Get followers/following lists
+router.get('/followers', followController.getFollowers);
+router.get('/following', followController.getFollowing);
 
 module.exports = router;

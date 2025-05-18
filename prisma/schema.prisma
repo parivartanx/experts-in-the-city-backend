@@ -1,4 +1,5 @@
-// This is your Prisma schema file
+// prisma/schema.prisma
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -8,31 +9,62 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ENUMS for better type safety
+enum UserRole {
+  USER
+  EXPERT
+  ADMIN
+}
+
+enum NotificationType {
+  FOLLOW
+  LIKE
+  COMMENT
+  MESSAGE
+  OTHER
+}
+
+model Admin {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  name        String
+  role        UserRole @default(ADMIN)
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model User {
-  id            String           @id @default(uuid())
-  email         String          @unique
-  password      String
-  name          String
-  role          String          @default("USER") // Can be "USER" or "EXPERT"
-  bio           String?
-  avatar        String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  posts         Post[]
-  comments      Comment[]
-  likes         Like[]
-  followers     Follow[]        @relation("FollowingUser")
-  following     Follow[]        @relation("FollowerUser")
-  expertDetails ExpertDetails?
-  notifications Notification[]
-  sentNotifications Notification[] @relation("SenderNotifications")
+  id                String              @id @default(uuid())
+  email             String              @unique
+  password          String
+  name              String
+  role              UserRole            @default(USER) // USER, EXPERT
+  bio               String?
+  avatar            String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  posts             Post[]
+  comments          Comment[]
+  likes             Like[]
+  expertDetails     ExpertDetails?
+
+  followers         Follow[]            @relation("UserFollowers")
+  following         Follow[]            @relation("UserFollowing")
+  notifications     Notification[]      @relation("ReceivedNotifications")
+  sentNotifications Notification[]      @relation("SentNotifications")
+  admin             Admin?
+
+  @@index([email])
 }
 
 model ExpertDetails {
   id          String   @id @default(uuid())
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id])
-  expertise   String[]
+  expertise   String[] // Ideally, later normalized to a separate Expertise table for scaling
   experience  Int
   hourlyRate  Float
   about       String
@@ -41,82 +73,83 @@ model ExpertDetails {
 }
 
 model Post {
-  id        String    @id @default(uuid())
-  title     String
-  content   String
-  image     String?
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id])
-  comments  Comment[]
-  likes     Like[]
-  tags      Tag[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String     @id @default(uuid())
+  title       String
+  content     String
+  image       String?
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id])
+  comments    Comment[]
+  likes       Like[]
+  tags        Tag[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([authorId])
 }
 
 model Comment {
-  id        String   @id @default(uuid())
-  content   String
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id])
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String     @id @default(uuid())
+  content     String
+  postId      String
+  post        Post       @relation(fields: [postId], references: [id])
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([postId])
+  @@index([authorId])
 }
 
 model Follow {
-  id          String   @id @default(uuid())
-  followerId  String
-  followingId String
-  follower    User     @relation("FollowerUser", fields: [followerId], references: [id])
-  following   User     @relation("FollowingUser", fields: [followingId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String     @id @default(uuid())
+  followerId    String
+  followingId   String
+  follower      User       @relation("UserFollowing", fields: [followerId], references: [id])
+  following     User       @relation("UserFollowers", fields: [followingId], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
 model Tag {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  posts     Post[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String     @id @default(uuid())
+  name        String     @unique
+  posts       Post[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Like {
-  id        String   @id @default(uuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String     @id @default(uuid())
+  postId      String
+  post        Post       @relation(fields: [postId], references: [id])
+  userId      String
+  user        User       @relation(fields: [userId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
 }
 
 model Notification {
-  id          String   @id @default(uuid())
-  type        String
-  content     String
-  read        Boolean  @default(false)
-  recipientId String
-  senderId    String
-  recipient   User     @relation(fields: [recipientId], references: [id])
-  sender      User     @relation("SenderNotifications", fields: [senderId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
+  id            String             @id @default(uuid())
+  type          NotificationType
+  content       String
+  read          Boolean            @default(false)
+  recipientId   String
+  senderId      String
+  recipient     User               @relation("ReceivedNotifications", fields: [recipientId], references: [id])
+  sender        User               @relation("SentNotifications", fields: [senderId], references: [id])
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
-model Admin {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([recipientId])
+  @@index([senderId])
 }
