@@ -13,8 +13,22 @@ const createPost = catchAsync(async (req, res) => {
     let imageUrl;
     if (req.file) {
       // Upload image to Cloudinary
-      const result = await cloudinary.uploader.upload(req.file.path);
-      imageUrl = result.secure_url;
+      const uploadOptions = {
+        resource_type: 'auto',
+        folder: 'posts'
+      };
+
+      if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
+        // For Vercel (memory storage)
+        const result = await cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+          if (error) throw error;
+          imageUrl = result.secure_url;
+        }).end(req.file.buffer);
+      } else {
+        // For local development (disk storage)
+        const result = await cloudinary.uploader.upload(req.file.path, uploadOptions);
+        imageUrl = result.secure_url;
+      }
     }
 
     const post = await prisma.post.create({
@@ -191,8 +205,22 @@ const updatePost = catchAsync(async (req, res) => {
     let imageUrl;
     if (req.file) {
       // Upload image to Cloudinary
-      const result = await cloudinary.uploader.upload(req.file.path);
-      imageUrl = result.secure_url;
+      const uploadOptions = {
+        resource_type: 'auto',
+        folder: 'posts'
+      };
+
+      if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
+        // For Vercel (memory storage)
+        const result = await cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+          if (error) throw error;
+          imageUrl = result.secure_url;
+        }).end(req.file.buffer);
+      } else {
+        // For local development (disk storage)
+        const result = await cloudinary.uploader.upload(req.file.path, uploadOptions);
+        imageUrl = result.secure_url;
+      }
     }
 
     const post = await prisma.post.update({
@@ -200,7 +228,7 @@ const updatePost = catchAsync(async (req, res) => {
       data: {
         title,
         content,
-        image: imageUrl
+        ...(imageUrl && { image: imageUrl })
       },
       include: {
         author: {
@@ -219,10 +247,7 @@ const updatePost = catchAsync(async (req, res) => {
       data: { post }
     });
   } catch (error) {
-    res.status(400).json({
-      status: 'error',
-      message: error.message
-    });
+    throw error;
   }
 });
 
