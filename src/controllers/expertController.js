@@ -1,11 +1,26 @@
 const { PrismaClient } = require('@prisma/client');
 const { formatPaginatedResponse } = require('../middleware/queryHandler');
 const { catchAsync } = require('../middleware/errorHandler');
+const { AppError, ErrorCodes, HttpStatus } = require('../utils/errors');
 
 const prisma = new PrismaClient();
 
 const createExpertProfile = catchAsync(async (req, res) => {
-  const { expertise, experience, hourlyRate, about } = req.body;
+  const { 
+    headline,
+    summary,
+    expertise,
+    experience,
+    hourlyRate,
+    about,
+    availability,
+    languages,
+    certifications,
+    experiences,
+    awards,
+    education
+  } = req.body;
+  
   const userId = req.user.id;
 
   // Check if expert profile already exists
@@ -18,10 +33,64 @@ const createExpertProfile = catchAsync(async (req, res) => {
     const updatedProfile = await prisma.expertDetails.update({
       where: { userId },
       data: {
+        headline,
+        summary,
         expertise,
         experience,
         hourlyRate,
-        about
+        about,
+        availability,
+        languages,
+        // Handle related data
+        certifications: {
+          create: certifications?.map(cert => ({
+            name: cert.name,
+            issuingOrganization: cert.issuingOrganization,
+            issueDate: new Date(cert.issueDate),
+            expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
+            credentialId: cert.credentialId,
+            credentialUrl: cert.credentialUrl
+          }))
+        },
+        experiences: {
+          create: experiences?.map(exp => ({
+            title: exp.title,
+            company: exp.company,
+            location: exp.location,
+            startDate: new Date(exp.startDate),
+            endDate: exp.endDate ? new Date(exp.endDate) : null,
+            isCurrent: exp.isCurrent || false,
+            description: exp.description,
+            skills: exp.skills || []
+          }))
+        },
+        awards: {
+          create: awards?.map(award => ({
+            title: award.title,
+            issuer: award.issuer,
+            date: new Date(award.date),
+            description: award.description
+          }))
+        },
+        education: {
+          create: education?.map(edu => ({
+            school: edu.school,
+            degree: edu.degree,
+            fieldOfStudy: edu.fieldOfStudy,
+            startDate: new Date(edu.startDate),
+            endDate: edu.endDate ? new Date(edu.endDate) : null,
+            isCurrent: edu.isCurrent || false,
+            description: edu.description,
+            grade: edu.grade,
+            activities: edu.activities
+          }))
+        }
+      },
+      include: {
+        certifications: true,
+        experiences: true,
+        awards: true,
+        education: true
       }
     });
 
@@ -36,10 +105,64 @@ const createExpertProfile = catchAsync(async (req, res) => {
     prisma.expertDetails.create({
       data: {
         userId,
+        headline,
+        summary,
         expertise,
         experience,
         hourlyRate,
-        about
+        about,
+        availability,
+        languages,
+        // Handle related data
+        certifications: {
+          create: certifications?.map(cert => ({
+            name: cert.name,
+            issuingOrganization: cert.issuingOrganization,
+            issueDate: new Date(cert.issueDate),
+            expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
+            credentialId: cert.credentialId,
+            credentialUrl: cert.credentialUrl
+          }))
+        },
+        experiences: {
+          create: experiences?.map(exp => ({
+            title: exp.title,
+            company: exp.company,
+            location: exp.location,
+            startDate: new Date(exp.startDate),
+            endDate: exp.endDate ? new Date(exp.endDate) : null,
+            isCurrent: exp.isCurrent || false,
+            description: exp.description,
+            skills: exp.skills || []
+          }))
+        },
+        awards: {
+          create: awards?.map(award => ({
+            title: award.title,
+            issuer: award.issuer,
+            date: new Date(award.date),
+            description: award.description
+          }))
+        },
+        education: {
+          create: education?.map(edu => ({
+            school: edu.school,
+            degree: edu.degree,
+            fieldOfStudy: edu.fieldOfStudy,
+            startDate: new Date(edu.startDate),
+            endDate: edu.endDate ? new Date(edu.endDate) : null,
+            isCurrent: edu.isCurrent || false,
+            description: edu.description,
+            grade: edu.grade,
+            activities: edu.activities
+          }))
+        }
+      },
+      include: {
+        certifications: true,
+        experiences: true,
+        awards: true,
+        education: true
       }
     }),
     prisma.user.update({
@@ -53,7 +176,6 @@ const createExpertProfile = catchAsync(async (req, res) => {
     data: { expert: expertProfile }
   });
 });
-
 
 const getExpertProfile = catchAsync(async (req, res) => {
   const { id } = req.params;
@@ -69,6 +191,9 @@ const getExpertProfile = catchAsync(async (req, res) => {
           avatar: true,
           bio: true,
           role: true,
+          interests: true,
+          tags: true,
+          location: true,
           createdAt: true,
           _count: {
             select: {
@@ -77,12 +202,28 @@ const getExpertProfile = catchAsync(async (req, res) => {
             }
           }
         }
+      },
+      certifications: {
+        orderBy: { issueDate: 'desc' }
+      },
+      experiences: {
+        orderBy: { startDate: 'desc' }
+      },
+      awards: {
+        orderBy: { date: 'desc' }
+      },
+      education: {
+        orderBy: { startDate: 'desc' }
       }
     }
   });
 
   if (!expert) {
-    throw { status: 404, message: 'Expert profile not found' };
+    throw new AppError(
+      'Expert profile not found',
+      HttpStatus.NOT_FOUND,
+      ErrorCodes.NOT_FOUND
+    );
   }
 
   // Transform the response to include follower and following counts
@@ -105,13 +246,34 @@ const getExpertProfile = catchAsync(async (req, res) => {
 });
 
 const listExperts = catchAsync(async (req, res) => {
-  const { expertise, search } = req.query;
+  const { expertise, search, availability, languages } = req.query;
 
-  const where = {};
+  const where = {
+    user: {
+      role: 'EXPERT'
+    }
+  };
   
   // Filter by expertise if provided
   if (expertise) {
-    where.role = 'EXPERT';
+    where.expertise = {
+      hasSome: expertise.split(',')
+    };
+  }
+
+  // Filter by availability if provided
+  if (availability) {
+    where.availability = {
+      contains: availability,
+      mode: 'insensitive'
+    };
+  }
+
+  // Filter by languages if provided
+  if (languages) {
+    where.languages = {
+      hasSome: languages.split(',')
+    };
   }
 
   // Add search filter if provided
@@ -123,6 +285,18 @@ const listExperts = catchAsync(async (req, res) => {
             contains: search,
             mode: 'insensitive'
           }
+        }
+      },
+      {
+        headline: {
+          contains: search,
+          mode: 'insensitive'
+        }
+      },
+      {
+        summary: {
+          contains: search,
+          mode: 'insensitive'
         }
       },
       {
@@ -145,8 +319,31 @@ const listExperts = catchAsync(async (req, res) => {
           avatar: true,
           bio: true,
           role: true,
+          interests: true,
+          tags: true,
+          location: true,
           createdAt: true,
         }
+      },
+      certifications: {
+        select: {
+          name: true,
+          issuingOrganization: true,
+          issueDate: true
+        },
+        orderBy: { issueDate: 'desc' },
+        take: 3
+      },
+      experiences: {
+        select: {
+          title: true,
+          company: true,
+          startDate: true,
+          endDate: true,
+          isCurrent: true
+        },
+        orderBy: { startDate: 'desc' },
+        take: 3
       }
     },
     orderBy: {
@@ -162,34 +359,212 @@ const listExperts = catchAsync(async (req, res) => {
 
 const updateExpertProfile = catchAsync(async (req, res) => {
   const userId = req.user.id;
-  const { expertise, experience, hourlyRate, about } = req.body;
+  const { 
+    headline,
+    summary,
+    expertise,
+    experience,
+    hourlyRate,
+    about,
+    availability,
+    languages,
+    // Section updates
+    certifications,
+    experiences,
+    awards,
+    education,
+    // Operation type for sections (add/update/delete)
+    sectionOperation = 'update' // 'add', 'update', or 'delete'
+  } = req.body;
 
   const expert = await prisma.expertDetails.findUnique({
     where: { userId }
   });
 
   if (!expert) {
-    throw { status: 404, message: 'Expert profile not found' };
+    throw new AppError(
+      'Expert profile not found',
+      HttpStatus.NOT_FOUND,
+      ErrorCodes.NOT_FOUND
+    );
   }
 
   if (expert.userId !== userId) {
-    throw { status: 403, message: 'Not authorized to update this profile' };
+    throw new AppError(
+      'Not authorized to update this profile',
+      HttpStatus.FORBIDDEN,
+      ErrorCodes.FORBIDDEN
+    );
+  }
+
+  // Prepare the update data
+  const updateData = {
+    headline,
+    summary,
+    expertise,
+    experience,
+    hourlyRate,
+    about,
+    availability,
+    languages
+  };
+
+  // Handle section updates based on operation type
+  if (sectionOperation === 'add') {
+    // Add new items to existing sections
+    if (certifications) {
+      updateData.certifications = {
+        create: certifications.map(cert => ({
+          name: cert.name,
+          issuingOrganization: cert.issuingOrganization,
+          issueDate: new Date(cert.issueDate),
+          expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
+          credentialId: cert.credentialId,
+          credentialUrl: cert.credentialUrl
+        }))
+      };
+    }
+    if (experiences) {
+      updateData.experiences = {
+        create: experiences.map(exp => ({
+          title: exp.title,
+          company: exp.company,
+          location: exp.location,
+          startDate: new Date(exp.startDate),
+          endDate: exp.endDate ? new Date(exp.endDate) : null,
+          isCurrent: exp.isCurrent || false,
+          description: exp.description,
+          skills: exp.skills || []
+        }))
+      };
+    }
+    if (awards) {
+      updateData.awards = {
+        create: awards.map(award => ({
+          title: award.title,
+          issuer: award.issuer,
+          date: new Date(award.date),
+          description: award.description
+        }))
+      };
+    }
+    if (education) {
+      updateData.education = {
+        create: education.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          fieldOfStudy: edu.fieldOfStudy,
+          startDate: new Date(edu.startDate),
+          endDate: edu.endDate ? new Date(edu.endDate) : null,
+          isCurrent: edu.isCurrent || false,
+          description: edu.description,
+          grade: edu.grade,
+          activities: edu.activities
+        }))
+      };
+    }
+  } else if (sectionOperation === 'update') {
+    // Update existing sections
+    if (certifications) {
+      updateData.certifications = {
+        deleteMany: {},
+        create: certifications.map(cert => ({
+          name: cert.name,
+          issuingOrganization: cert.issuingOrganization,
+          issueDate: new Date(cert.issueDate),
+          expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
+          credentialId: cert.credentialId,
+          credentialUrl: cert.credentialUrl
+        }))
+      };
+    }
+    if (experiences) {
+      updateData.experiences = {
+        deleteMany: {},
+        create: experiences.map(exp => ({
+          title: exp.title,
+          company: exp.company,
+          location: exp.location,
+          startDate: new Date(exp.startDate),
+          endDate: exp.endDate ? new Date(exp.endDate) : null,
+          isCurrent: exp.isCurrent || false,
+          description: exp.description,
+          skills: exp.skills || []
+        }))
+      };
+    }
+    if (awards) {
+      updateData.awards = {
+        deleteMany: {},
+        create: awards.map(award => ({
+          title: award.title,
+          issuer: award.issuer,
+          date: new Date(award.date),
+          description: award.description
+        }))
+      };
+    }
+    if (education) {
+      updateData.education = {
+        deleteMany: {},
+        create: education.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          fieldOfStudy: edu.fieldOfStudy,
+          startDate: new Date(edu.startDate),
+          endDate: edu.endDate ? new Date(edu.endDate) : null,
+          isCurrent: edu.isCurrent || false,
+          description: edu.description,
+          grade: edu.grade,
+          activities: edu.activities
+        }))
+      };
+    }
+  } else if (sectionOperation === 'delete') {
+    // Delete specified sections
+    if (certifications) {
+      updateData.certifications = {
+        deleteMany: {
+          id: { in: certifications.map(c => c.id) }
+        }
+      };
+    }
+    if (experiences) {
+      updateData.experiences = {
+        deleteMany: {
+          id: { in: experiences.map(e => e.id) }
+        }
+      };
+    }
+    if (awards) {
+      updateData.awards = {
+        deleteMany: {
+          id: { in: awards.map(a => a.id) }
+        }
+      };
+    }
+    if (education) {
+      updateData.education = {
+        deleteMany: {
+          id: { in: education.map(e => e.id) }
+        }
+      };
+    }
   }
 
   const updatedExpert = await prisma.expertDetails.update({
     where: { userId },
-    data: {
-      expertise,
-      experience,
-      hourlyRate,
-      about
-    },
+    data: updateData,
     include: {
       user: {
         select: {
           role: true
         }
-      }
+      },
+      certifications: true,
+      experiences: true,
+      awards: true,
+      education: true
     }
   });
 

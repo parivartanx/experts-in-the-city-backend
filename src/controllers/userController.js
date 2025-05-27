@@ -1,8 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const cloudinary = require('cloudinary').v2;
 const { catchAsync } = require('../middleware/errorHandler');
+const { AppError, ErrorCodes, HttpStatus } = require('../utils/errors');
 
 const prisma = new PrismaClient();
 
@@ -47,70 +46,97 @@ const getProfile = catchAsync(async (req, res) => {
 });
 
 const updateProfile = catchAsync(async (req, res) => {
-  const updates = Object.keys(req.body);
-  const allowedUpdates = ['name', 'bio', 'avatar'];
-  const expertUpdates = ['expertise', 'experience', 'hourlyRate', 'about'];
-  
-  // If user is an expert, allow expert-specific updates
-  if (req.user.role === 'EXPERT') {
-    allowedUpdates.push(...expertUpdates);
-  }
+  const { 
+    name, 
+    bio, 
+    avatar,
+    interests,
+    tags,
+    location,
+    expertise,
+    experience,
+    hourlyRate,
+    about
+  } = req.body;
 
-  const isValidOperation = updates.every(update => allowedUpdates.includes(update));
+  // Validate location object if provided
+  if (location) {
+    const validLocationFields = ['pincode', 'address', 'country', 'latitude', 'longitude'];
+    const providedFields = Object.keys(location);
+    
+    // Check if all provided fields are valid
+    const invalidFields = providedFields.filter(field => !validLocationFields.includes(field));
+    if (invalidFields.length > 0) {
+      throw new AppError(
+        `Invalid location fields: ${invalidFields.join(', ')}`,
+        HttpStatus.BAD_REQUEST,
+        ErrorCodes.INVALID_INPUT
+      );
+    }
 
-  if (!isValidOperation) {
-    throw { status: 400, message: 'Invalid updates' };
-  }
-
-  try {
-    // Separate expert details from regular user updates
-    const userUpdates = {};
-    const expertDetailsUpdates = {};
-
-    updates.forEach(update => {
-      if (expertUpdates.includes(update)) {
-        expertDetailsUpdates[update] = req.body[update];
-      } else {
-        userUpdates[update] = req.body[update];
+    // Validate latitude and longitude if provided
+    if (location.latitude !== undefined) {
+      const lat = parseFloat(location.latitude);
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        throw new AppError(
+          'Invalid latitude value. Must be between -90 and 90',
+          HttpStatus.BAD_REQUEST,
+          ErrorCodes.INVALID_INPUT
+        );
       }
-    });
+    }
 
-    const user = await prisma.user.update({
-      where: { id: req.user.id },
-      data: {
-        ...userUpdates,
-        expertDetails: req.user.role === 'EXPERT' && Object.keys(expertDetailsUpdates).length > 0
-          ? {
-              upsert: {
-                create: expertDetailsUpdates,
-                update: expertDetailsUpdates
-              }
+    if (location.longitude !== undefined) {
+      const lng = parseFloat(location.longitude);
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        throw new AppError(
+          'Invalid longitude value. Must be between -180 and 180',
+          HttpStatus.BAD_REQUEST,
+          ErrorCodes.INVALID_INPUT
+        );
+      }
+    }
+  }
+
+  // Update user profile
+  const updatedUser = await prisma.user.update({
+    where: { id: req.user.id },
+    data: {
+      name,
+      bio,
+      avatar,
+      interests: interests || undefined,
+      tags: tags || undefined,
+      location: location || undefined,
+      // Handle expert details if user is an expert
+      ...(req.user.role === 'EXPERT' && {
+        expertDetails: {
+          upsert: {
+            create: {
+              expertise: expertise || [],
+              experience: experience || 0,
+              hourlyRate: hourlyRate || 0,
+              about: about || ''
+            },
+            update: {
+              expertise: expertise || undefined,
+              experience: experience || undefined,
+              hourlyRate: hourlyRate || undefined,
+              about: about || undefined
             }
-          : undefined
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        bio: true,
-        avatar: true,
-        role: true,
-        expertDetails: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+          }
+        }
+      })
+    },
+    include: {
+      expertDetails: true
+    }
+  });
 
-    res.json({
-      status: 'success',
-      data: { user }
-    });
-  } catch (error) {
-    res.status(400).json({
-      status: 'error',
-      message: error.message
-    });
-  }
+  res.json({
+    status: 'success',
+    data: { user: updatedUser }
+  });
 });
 
 const changePassword = catchAsync(async (req, res) => {
@@ -119,7 +145,11 @@ const changePassword = catchAsync(async (req, res) => {
   const isValidPassword = await bcrypt.compare(currentPassword, req.user.password);
 
   if (!isValidPassword) {
-    throw { status: 401, message: 'Current password is incorrect' };
+    throw new AppError(
+      'Current password is incorrect',
+      HttpStatus.UNAUTHORIZED,
+      ErrorCodes.INVALID_CREDENTIALS
+    );
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -136,9 +166,28 @@ const changePassword = catchAsync(async (req, res) => {
 });
 
 const deleteAccount = catchAsync(async (req, res) => {
-  await prisma.user.delete({
-    where: { id: req.user.id }
-  });
+  // Delete user and all related records in a transaction
+  await prisma.$transaction([
+    // Delete expert details if exists
+    prisma.expertDetails.deleteMany({ where: { userId: req.user.id } }),
+    // Delete user's posts
+    prisma.post.deleteMany({ where: { authorId: req.user.id } }),
+    // Delete user's comments
+    prisma.comment.deleteMany({ where: { authorId: req.user.id } }),
+    // Delete user's likes
+    prisma.like.deleteMany({ where: { userId: req.user.id } }),
+    // Delete user's follows
+    prisma.follow.deleteMany({
+      where: {
+        OR: [
+          { followerId: req.user.id },
+          { followingId: req.user.id }
+        ]
+      }
+    }),
+    // Delete user
+    prisma.user.delete({ where: { id: req.user.id } })
+  ]);
 
   res.json({
     status: 'success',

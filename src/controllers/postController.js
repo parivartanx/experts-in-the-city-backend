@@ -1,34 +1,42 @@
 const { PrismaClient } = require('@prisma/client');
-const cloudinary = require('cloudinary').v2;
+const { generatePresignedUrl, generateReadUrl } = require('../utils/s3');
 const { formatPaginatedResponse } = require('../middleware/queryHandler');
 const { catchAsync } = require('../middleware/errorHandler');
 
 const prisma = new PrismaClient();
 
+// Get presigned URL for image upload
+const getUploadUrl = catchAsync(async (req, res) => {
+  const { contentType, fileName } = req.query;
+  
+  if (!contentType || !fileName) {
+    throw { status: 400, message: 'Content type and file name are required' };
+  }
+
+  // Generate a unique key for the file
+  const key = `posts/${Date.now()}-${fileName}`;
+  
+  const { presignedUrl, key: fileKey } = await generatePresignedUrl(key, contentType);
+
+  res.json({
+    status: 'success',
+    data: {
+      uploadUrl: presignedUrl,
+      key: fileKey,
+      expiresIn: 3600 // 1 hour
+    }
+  });
+});
+
 const createPost = catchAsync(async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, imageKey } = req.body;
     const userId = req.user.id;
 
     let imageUrl;
-    if (req.file) {
-      // Upload image to Cloudinary
-      const uploadOptions = {
-        resource_type: 'auto',
-        folder: 'posts'
-      };
-
-      if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
-        // For Vercel (memory storage)
-        const result = await cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
-          if (error) throw error;
-          imageUrl = result.secure_url;
-        }).end(req.file.buffer);
-      } else {
-        // For local development (disk storage)
-        const result = await cloudinary.uploader.upload(req.file.path, uploadOptions);
-        imageUrl = result.secure_url;
-      }
+    if (imageKey) {
+      // Generate a read URL for the uploaded image
+      imageUrl = await generateReadUrl(imageKey);
     }
 
     const post = await prisma.post.create({
@@ -185,7 +193,7 @@ const listPosts = catchAsync(async (req, res) => {
 const updatePost = catchAsync(async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content } = req.body;
+    const { title, content, imageKey } = req.body;
     const userId = req.user.id;
 
     // Check if post exists and belongs to user
@@ -203,24 +211,9 @@ const updatePost = catchAsync(async (req, res) => {
     }
 
     let imageUrl;
-    if (req.file) {
-      // Upload image to Cloudinary
-      const uploadOptions = {
-        resource_type: 'auto',
-        folder: 'posts'
-      };
-
-      if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
-        // For Vercel (memory storage)
-        const result = await cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
-          if (error) throw error;
-          imageUrl = result.secure_url;
-        }).end(req.file.buffer);
-      } else {
-        // For local development (disk storage)
-        const result = await cloudinary.uploader.upload(req.file.path, uploadOptions);
-        imageUrl = result.secure_url;
-      }
+    if (imageKey) {
+      // Generate a read URL for the uploaded image
+      imageUrl = await generateReadUrl(imageKey);
     }
 
     const post = await prisma.post.update({
@@ -325,6 +318,7 @@ const addTags = catchAsync(async (req, res) => {
 });
 
 module.exports = {
+  getUploadUrl,
   createPost,
   getPost,
   listPosts,

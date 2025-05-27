@@ -8,12 +8,16 @@ const {
   updateExpertProfile
 } = require('../controllers/expertController');
 
-// Public routes
-router.get('/', listExperts);
+// Create/Update expert profile
+router.post('/profile', isAuthenticated, createExpertProfile);
+
+// Get expert profile
 router.get('/:id', getExpertProfile);
 
-// Protected routes
-router.post('/profile', isAuthenticated, createExpertProfile);
+// List experts with filters
+router.get('/', listExperts);
+
+// Update expert profile
 router.patch('/profile', isAuthenticated, updateExpertProfile);
 
 module.exports = router;

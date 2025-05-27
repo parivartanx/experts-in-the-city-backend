@@ -1,4 +1,5 @@
 const express = require('express');
+const adminRoutes = require('./adminRoutes');
 const userRoutes = require('./users');
 const expertRoutes = require('./experts');
 const postRoutes = require('./posts');
@@ -7,6 +8,7 @@ const likeRoutes = require('./likes');
 const followRoutes = require('./follows');
 const notificationRoutes = require('./notifications');
 const authRoutes = require('./auth');
+const uploadRoutes = require('./upload');
 
 const router = express.Router();
 
@@ -22,6 +24,9 @@ router.get('/', (req, res) => {
 // Auth routes
 router.use('/auth', authRoutes);
 
+// Admin routes
+router.use('/admin', adminRoutes);
+
 // API routes
 router.use('/users', userRoutes);
 router.use('/experts', expertRoutes);
@@ -30,5 +35,6 @@ router.use('/comments', commentRoutes);
 router.use('/likes', likeRoutes);
 router.use('/follows', followRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/upload', uploadRoutes);
 
 module.exports = router;

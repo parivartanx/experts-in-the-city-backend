@@ -44,6 +44,9 @@ model User {
   role              UserRole            @default(USER) // USER, EXPERT
   bio               String?
   avatar            String?
+  interests         String[]            // Array of user interests
+  tags              String[]            // Array of user tags
+  location          Json?               // Location object with optional fields
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   posts             Post[]
@@ -61,15 +64,90 @@ model User {
 }
 
 model ExpertDetails {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id])
-  expertise   String[] // Ideally, later normalized to a separate Expertise table for scaling
-  experience  Int
-  hourlyRate  Float
-  about       String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String        @id @default(uuid())
+  userId        String        @unique
+  user          User          @relation(fields: [userId], references: [id])
+  headline      String?       // Professional headline/title
+  summary       String?       // Professional summary
+  expertise     String[]      // Skills array
+  experience    Int          // Years of experience
+  hourlyRate    Float
+  about         String
+  availability  String?       // Available hours/days
+  languages     String[]      // Languages known
+  certifications Certificate[]
+  experiences   Experience[]
+  awards        Award[]
+  education     Education[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Certificate {
+  id              String        @id @default(uuid())
+  expertId        String
+  expert          ExpertDetails @relation(fields: [expertId], references: [id])
+  name            String        // Certificate name
+  issuingOrganization String    // Organization that issued the certificate
+  issueDate       DateTime
+  expiryDate      DateTime?
+  credentialId    String?       // Certificate ID/URL
+  credentialUrl   String?       // URL to verify the certificate
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([expertId])
+}
+
+model Experience {
+  id              String        @id @default(uuid())
+  expertId        String
+  expert          ExpertDetails @relation(fields: [expertId], references: [id])
+  title           String        // Job title
+  company         String        // Company name
+  location        String?       // Work location
+  startDate       DateTime
+  endDate         DateTime?
+  isCurrent       Boolean       @default(false)
+  description     String?       // Job description
+  skills          String[]      // Skills used in this role
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([expertId])
+}
+
+model Award {
+  id              String        @id @default(uuid())
+  expertId        String
+  expert          ExpertDetails @relation(fields: [expertId], references: [id])
+  title           String        // Award title
+  issuer          String        // Organization that gave the award
+  date            DateTime
+  description     String?       // Award description
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([expertId])
+}
+
+model Education {
+  id              String        @id @default(uuid())
+  expertId        String
+  expert          ExpertDetails @relation(fields: [expertId], references: [id])
+  school          String        // School/University name
+  degree          String        // Degree name
+  fieldOfStudy    String        // Major/Field of study
+  startDate       DateTime
+  endDate         DateTime?
+  isCurrent       Boolean       @default(false)
+  description     String?       // Additional details
+  grade           String?       // GPA/Grade
+  activities      String?       // Extracurricular activities
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([expertId])
 }
 
 model Post {
