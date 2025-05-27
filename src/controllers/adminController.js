@@ -92,7 +92,6 @@ const getAllUsers = async (req, res) => {
       prisma.user.findMany({
         where,
         include: {
-          Admin: true,
           expertDetails: true,
           _count: {
             select: {

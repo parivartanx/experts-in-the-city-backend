@@ -245,12 +245,55 @@ Authorization: Bearer <your_token>
         "bio": "User bio",
         "avatar": "avatar_url",
         "role": "USER",
-        "isAdmin": false,
+        "interests": ["Technology", "Science"],
+        "tags": ["Developer", "Designer"],
+        "location": {
+          "pincode": "123456",
+          "address": "123 Main St",
+          "country": "United States",
+          "latitude": 37.7749,
+          "longitude": -122.4194
+        },
+        "expertDetails": null,
+        "stats": {
+          "posts": 10,
+          "followers": 50,
+          "following": 30,
+          "likes": 100,
+          "comments": 25
+        },
+        "createdAt": "2024-03-21T10:00:00Z",
+        "updatedAt": "2024-03-21T10:00:00Z"
+      },
+      {
+        "id": "uuid",
+        "email": "expert@example.com",
+        "name": "Expert Name",
+        "bio": "Expert bio",
+        "avatar": "avatar_url",
+        "role": "EXPERT",
+        "interests": ["Technology", "Science"],
+        "tags": ["Developer", "Designer"],
+        "location": {
+          "pincode": "123456",
+          "address": "123 Main St",
+          "country": "United States",
+          "latitude": 37.7749,
+          "longitude": -122.4194
+        },
         "expertDetails": {
+          "headline": "Professional Headline",
+          "summary": "Professional Summary",
           "expertise": ["Skill 1", "Skill 2"],
           "experience": 5,
-          "hourlyRate": 50.00,
-          "about": "Expert description"
+          "hourlyRate": 50,
+          "about": "About section",
+          "availability": "Mon-Fri, 9-5",
+          "languages": ["English", "Spanish"],
+          "certifications": [...],
+          "experiences": [...],
+          "awards": [...],
+          "education": [...]
         },
         "stats": {
           "posts": 10,
@@ -289,13 +332,16 @@ Authorization: Bearer <your_token>
       "bio": "User bio",
       "avatar": "avatar_url",
       "role": "USER",
-      "Admin": null,
-      "expertDetails": {
-        "expertise": ["Skill 1", "Skill 2"],
-        "experience": 5,
-        "hourlyRate": 50.00,
-        "about": "Expert description"
+      "interests": ["Technology", "Science"],
+      "tags": ["Developer", "Designer"],
+      "location": {
+        "pincode": "123456",
+        "address": "123 Main St",
+        "country": "United States",
+        "latitude": 37.7749,
+        "longitude": -122.4194
       },
+      "expertDetails": null,
       "posts": [
         {
           "id": "post_uuid",
@@ -628,8 +674,8 @@ Authorization: Bearer <your_token>
       "role": "USER",
       "bio": "User bio",
       "avatar": "avatar_url",
-      "interests": ["Technology", "Science", "Art"],
-      "tags": ["Developer", "Designer", "Writer"],
+      "interests": ["Technology", "Science"],
+      "tags": ["Developer", "Designer"],
       "location": {
         "pincode": "123456",
         "address": "123 Main St",
@@ -637,12 +683,7 @@ Authorization: Bearer <your_token>
         "latitude": 37.7749,
         "longitude": -122.4194
       },
-      "expertDetails": {
-        "expertise": ["Skill 1", "Skill 2"],
-        "experience": 5,
-        "hourlyRate": 50.00,
-        "about": "Expert description"
-      },
+      "expertDetails": null,
       "createdAt": "2024-03-21T10:00:00Z",
       "updatedAt": "2024-03-21T10:00:00Z"
     }
@@ -835,40 +876,97 @@ Authorization: Bearer <your_token>
 - **Method**: GET
 - **URL**: `/experts/:id`
 - **Response**:
-  ```json
-  {
-    "status": "success",
-    "data": {
-      "expert": {
-        "id": "expert_id",
-        "headline": "Professional Headline",
-        "summary": "Professional Summary",
-        "expertise": ["Skill 1", "Skill 2"],
-        "experience": 5,
-        "hourlyRate": 50,
-        "about": "About section",
-        "availability": "Mon-Fri, 9-5",
-        "languages": ["English", "Spanish"],
-        "certifications": [...],
-        "experiences": [...],
-        "awards": [...],
-        "education": [...],
-        "user": {
-          "id": "user_id",
-          "name": "User Name",
-          "email": "user@example.com",
-          "avatar": "avatar_url",
-          "role": "EXPERT",
-          "interests": [...],
-          "tags": [...],
-          "location": {...}
-        },
-        "followersCount": 10,
-        "followingCount": 5
-      }
+```json
+{
+  "status": "success",
+  "data": {
+    "expert": {
+      "id": "expert_id",
+      "headline": "Professional Headline",
+      "summary": "Professional Summary",
+      "expertise": ["Skill 1", "Skill 2"],
+      "experience": 5,
+      "hourlyRate": 50,
+      "about": "About section",
+      "availability": "Mon-Fri, 9-5",
+      "languages": ["English", "Spanish"],
+      "certifications": [
+        {
+          "id": "cert_uuid",
+          "name": "AWS Certified Developer",
+          "issuingOrganization": "Amazon Web Services",
+          "issueDate": "2023-01-01T00:00:00Z",
+          "expiryDate": "2026-01-01T00:00:00Z",
+          "credentialId": "ABC123",
+          "credentialUrl": "https://verify.aws.com/ABC123",
+          "createdAt": "2024-03-21T10:00:00Z",
+          "updatedAt": "2024-03-21T10:00:00Z"
+        }
+      ],
+      "experiences": [
+        {
+          "id": "exp_uuid",
+          "title": "Senior Software Engineer",
+          "company": "Tech Corp",
+          "location": "New York, NY",
+          "startDate": "2020-01-01T00:00:00Z",
+          "endDate": null,
+          "isCurrent": true,
+          "description": "Led development of enterprise applications",
+          "skills": ["React", "Node.js", "AWS"],
+          "createdAt": "2024-03-21T10:00:00Z",
+          "updatedAt": "2024-03-21T10:00:00Z"
+        }
+      ],
+      "awards": [
+        {
+          "id": "award_uuid",
+          "title": "Best Developer Award",
+          "issuer": "Tech Community",
+          "date": "2023-12-01T00:00:00Z",
+          "description": "Recognized for outstanding contributions",
+          "createdAt": "2024-03-21T10:00:00Z",
+          "updatedAt": "2024-03-21T10:00:00Z"
+        }
+      ],
+      "education": [
+        {
+          "id": "edu_uuid",
+          "school": "University of Technology",
+          "degree": "Bachelor of Science",
+          "fieldOfStudy": "Computer Science",
+          "startDate": "2015-09-01T00:00:00Z",
+          "endDate": "2019-05-01T00:00:00Z",
+          "isCurrent": false,
+          "description": "Focused on software engineering and AI",
+          "grade": "3.8/4.0",
+          "activities": "Computer Science Club, Hackathon Organizer",
+          "createdAt": "2024-03-21T10:00:00Z",
+          "updatedAt": "2024-03-21T10:00:00Z"
+        }
+      ],
+      "user": {
+        "id": "user_id",
+        "name": "User Name",
+        "email": "user@example.com",
+        "avatar": "avatar_url",
+        "role": "EXPERT",
+        "interests": ["Technology", "Science"],
+        "tags": ["Developer", "Designer"],
+        "location": {
+          "pincode": "123456",
+          "address": "123 Main St",
+          "country": "United States",
+          "latitude": 37.7749,
+          "longitude": -122.4194
+        }
+      },
+      "followersCount": 10,
+      "followingCount": 5
     }
   }
-  ```
+}
+```
 
 #### List Experts
 - **Method**: GET
@@ -881,37 +979,94 @@ Authorization: Bearer <your_token>
   - `page`: Page number (default: 1)
   - `limit`: Items per page (default: 10)
 - **Response**:
-  ```json
-  {
-    "status": "success",
-    "data": {
-      "experts": [
-        {
-          "id": "expert_id",
-          "headline": "Professional Headline",
-          "summary": "Professional Summary",
-          "expertise": ["Skill 1", "Skill 2"],
-          "experience": 5,
-          "hourlyRate": 50,
-          "about": "About section",
-          "availability": "Mon-Fri, 9-5",
-          "languages": ["English", "Spanish"],
-          "user": {
-            "id": "user_id",
-            "name": "User Name",
-            "avatar": "avatar_url"
+```json
+{
+  "status": "success",
+  "data": {
+    "experts": [
+      {
+        "id": "expert_id",
+        "headline": "Professional Headline",
+        "summary": "Professional Summary",
+        "expertise": ["Skill 1", "Skill 2"],
+        "experience": 5,
+        "hourlyRate": 50,
+        "about": "About section",
+        "availability": "Mon-Fri, 9-5",
+        "languages": ["English", "Spanish"],
+        "user": {
+          "id": "user_id",
+          "name": "User Name",
+          "avatar": "avatar_url",
+          "role": "EXPERT",
+          "interests": ["Technology", "Science"],
+          "tags": ["Developer", "Designer"],
+          "location": {
+            "pincode": "123456",
+            "address": "123 Main St",
+            "country": "United States",
+            "latitude": 37.7749,
+            "longitude": -122.4194
           }
-        }
-      ],
-      "pagination": {
-        "page": 1,
-        "limit": 10,
-        "total": 100,
-        "pages": 10
+        },
+        "certifications": [
+          {
+            "id": "cert_uuid",
+            "name": "AWS Certified Developer",
+            "issuingOrganization": "Amazon Web Services",
+            "issueDate": "2023-01-01T00:00:00Z",
+            "expiryDate": "2026-01-01T00:00:00Z",
+            "credentialId": "ABC123",
+            "credentialUrl": "https://verify.aws.com/ABC123"
+          }
+        ],
+        "experiences": [
+          {
+            "id": "exp_uuid",
+            "title": "Senior Software Engineer",
+            "company": "Tech Corp",
+            "location": "New York, NY",
+            "startDate": "2020-01-01T00:00:00Z",
+            "endDate": null,
+            "isCurrent": true,
+            "description": "Led development of enterprise applications",
+            "skills": ["React", "Node.js", "AWS"]
+          }
+        ],
+        "awards": [
+          {
+            "id": "award_uuid",
+            "title": "Best Developer Award",
+            "issuer": "Tech Community",
+            "date": "2023-12-01T00:00:00Z",
+            "description": "Recognized for outstanding contributions"
+          }
+        ],
+        "education": [
+          {
+            "id": "edu_uuid",
+            "school": "University of Technology",
+            "degree": "Bachelor of Science",
+            "fieldOfStudy": "Computer Science",
+            "startDate": "2015-09-01T00:00:00Z",
+            "endDate": "2019-05-01T00:00:00Z",
+            "isCurrent": false,
+            "description": "Focused on software engineering and AI",
+            "grade": "3.8/4.0",
+            "activities": "Computer Science Club, Hackathon Organizer"
+          }
+        ]
       }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 100,
+      "pages": 10
     }
   }
-  ```
+}
+```
 
 ### Post Routes
 
