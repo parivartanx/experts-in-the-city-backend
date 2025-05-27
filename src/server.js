@@ -5,6 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 const { errorHandler } = require('./middleware/errorHandler');
 const { AppError, ErrorCodes, HttpStatus } = require('./utils/errors');
 const routes = require('./routes');
+const rateLimit = require('express-rate-limit');
 
 // Load environment variables
 dotenv.config();
@@ -13,9 +14,30 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 
+// API Rate limiter
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per windowMs
+  message: {
+    status: 'error',
+    message: 'Too many API requests, please try again after 15 minutes'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// Apply rate limiter to API routes
+app.use('/api', apiLimiter);
+
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "*",
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
+
+app.use(express.json());  
 app.use(express.urlencoded({ extended: true }));
 
 // Root endpoint
@@ -24,18 +46,9 @@ app.get('/', (req, res) => {
     status: 'success',
     message: 'Welcome to Experts in the City API',
     version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      users: '/api/users',
-      experts: '/api/experts',
-      posts: '/api/posts',
-      comments: '/api/comments',
-      likes: '/api/likes',
-      follows: '/api/follows',
-      notifications: '/api/notifications',
-    },
-    documentation: 'API documentation coming soon',
-    health: '/health'
+    health: '/health',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
   });
 });
 
