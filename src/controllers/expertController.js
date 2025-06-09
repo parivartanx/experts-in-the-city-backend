@@ -194,6 +194,11 @@ const getExpertProfile = catchAsync(async (req, res) => {
           interests: true,
           tags: true,
           location: true,
+          ratings: true,
+          badges: true,
+          progressLevel: true,
+          progressShow: true,
+          reviews: true,
           createdAt: true,
           _count: {
             select: {
@@ -320,6 +325,10 @@ const listExperts = catchAsync(async (req, res) => {
           bio: true,
           role: true,
           interests: true,
+          ratings: true,
+          badges: true,
+          progressLevel: true,
+          progressShow: true,
           tags: true,
           location: true,
           createdAt: true,

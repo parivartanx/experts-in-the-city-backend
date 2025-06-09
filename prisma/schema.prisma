@@ -16,11 +16,71 @@ enum UserRole {
   ADMIN
 }
 
+enum BadgeType {
+  VERIFIED_EXPERT
+  TOP_RATED
+  RISING_EXPERT
+  IN_DEMAND
+  ELITE_EXPERT
+  MULTICITY_EXPERT
+  QUICK_RESPONDER
+  COMMUNITY_CONTRIBUTOR
+  SPECIALIST
+  VERSATILE_PRO
+}
+
+enum ProgressLevel {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
 enum NotificationType {
   FOLLOW
   LIKE
   COMMENT
   MESSAGE
+  MESSAGE_SCHEDULE
+  BADGE_EARNED
+  SUGGESTION
+  OTHER
+}
+
+enum SatisfactionLevel {
+  VERY_DISSATISFIED
+  DISSATISFIED
+  NEUTRAL
+  SATISFIED
+  VERY_SATISFIED
+}
+
+enum Expertise {
+  TECHNOLOGY
+  BUSINESS
+  HEALTHCARE
+  EDUCATION
+  ARTS
+  SCIENCE
+  ENGINEERING
+  LAW
+  FINANCE
+  MARKETING
+  DESIGN
+  MEDIA
+  SPORTS
+  CULINARY
+  LANGUAGES
+  PSYCHOLOGY
+  ENVIRONMENT
+  AGRICULTURE
+  CONSTRUCTION
+  HOSPITALITY
+  RETAIL
+  TRANSPORTATION
+  ENTERTAINMENT
+  NON_PROFIT
+  GOVERNMENT
   OTHER
 }
 
@@ -44,7 +104,7 @@ model User {
   role              UserRole            @default(USER) // USER, EXPERT
   bio               String?
   avatar            String?
-  interests         String[]            // Array of user interests
+  interests         Expertise[]         // Array of expertise enum
   tags              String[]            // Array of user tags
   location          Json?               // Location object with optional fields
   createdAt         DateTime            @default(now())
@@ -52,7 +112,9 @@ model User {
   posts             Post[]
   comments          Comment[]
   likes             Like[]
+  replies           Reply[]
   expertDetails     ExpertDetails?
+  givenReviews      SessionReview[]     @relation("UserReviews")
 
   followers         Follow[]            @relation("UserFollowers")
   following         Follow[]            @relation("UserFollowing")
@@ -69,16 +131,22 @@ model ExpertDetails {
   user          User          @relation(fields: [userId], references: [id])
   headline      String?       // Professional headline/title
   summary       String?       // Professional summary
-  expertise     String[]      // Skills array
+  expertise     Expertise[]   // Array of expertise enum
   experience    Int          // Years of experience
   hourlyRate    Float
   about         String
   availability  String?       // Available hours/days
   languages     String[]      // Languages known
   certifications Certificate[]
+  verified        Boolean       @default(false)
   experiences   Experience[]
   awards        Award[]
   education     Education[]
+  badges        BadgeType[]
+  progressLevel ProgressLevel @default(BRONZE)
+  progressShow  Boolean       @default(true)
+  ratings       Float         @default(0) // Average rating from reviews
+  reviews       SessionReview[] // Add reviews relation
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
@@ -173,10 +241,25 @@ model Comment {
   post        Post       @relation(fields: [postId], references: [id])
   authorId    String
   author      User       @relation(fields: [authorId], references: [id])
+  replies     Reply[]    // Add replies relation
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   @@index([postId])
+  @@index([authorId])
+}
+
+model Reply {
+  id          String     @id @default(uuid())
+  content     String
+  commentId   String
+  comment     Comment    @relation(fields: [commentId], references: [id])
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([commentId])
   @@index([authorId])
 }
 
@@ -230,4 +313,21 @@ model Notification {
 
   @@index([recipientId])
   @@index([senderId])
+}
+
+model SessionReview {
+  id              String            @id @default(uuid())
+  sessionId       String?
+  reviewerId      String
+  expertId        String
+  rating          Float             // Rating out of 5 (supports decimal values like 4.5)
+  satisfaction    SatisfactionLevel?
+  remarks         String?
+  reviewer        User              @relation("UserReviews", fields: [reviewerId], references: [id])
+  expert          ExpertDetails     @relation(fields: [expertId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([reviewerId])
+  @@index([expertId])
 }

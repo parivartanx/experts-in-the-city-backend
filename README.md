@@ -1306,7 +1306,6 @@ Authorization: Bearer <your_token>
             "createdAt": "2024-03-21T10:00:00Z"
           }
         ],
-        "replyCount": 1,
         "createdAt": "2024-03-21T10:00:00Z"
       }
     ],
@@ -1320,9 +1319,9 @@ Authorization: Bearer <your_token>
 }
 ```
 
-#### Reply to Comment
+#### Create Reply
 - **Method**: POST
-- **URL**: `/comments/:commentId/reply`
+- **URL**: `/comments/:commentId/replies`
 - **Auth Required**: Yes
 - **Body**:
 ```json
@@ -1338,15 +1337,51 @@ Authorization: Bearer <your_token>
     "reply": {
       "id": "uuid",
       "content": "Reply content",
-      "postId": "post_uuid",
+      "commentId": "comment_uuid",
       "authorId": "uuid",
-      "parentId": "parent_comment_uuid",
       "author": {
         "id": "uuid",
         "name": "Author Name",
         "avatar": "avatar_url"
       },
       "createdAt": "2024-03-21T10:00:00Z"
+    }
+  }
+}
+```
+
+#### Get Comment Replies
+- **Method**: GET
+- **URL**: `/comments/:commentId/replies`
+- **Query Parameters**:
+  - `page`: Page number (default: 1)
+  - `limit`: Items per page (default: 10)
+  - `sort`: Sort field (e.g., "createdAt")
+  - `order`: Sort order ("asc" or "desc")
+- **Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "replies": [
+      {
+        "id": "uuid",
+        "content": "Reply content",
+        "commentId": "comment_uuid",
+        "authorId": "uuid",
+        "author": {
+          "id": "uuid",
+          "name": "Author Name",
+          "avatar": "avatar_url"
+        },
+        "createdAt": "2024-03-21T10:00:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 50,
+      "page": 1,
+      "limit": 10,
+      "pages": 5
     }
   }
 }
@@ -1383,6 +1418,37 @@ Authorization: Bearer <your_token>
 }
 ```
 
+#### Update Reply
+- **Method**: PATCH
+- **URL**: `/comments/replies/:replyId`
+- **Auth Required**: Yes
+- **Body**:
+```json
+{
+  "content": "Updated reply content"
+}
+```
+- **Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "reply": {
+      "id": "uuid",
+      "content": "Updated reply content",
+      "commentId": "comment_uuid",
+      "authorId": "uuid",
+      "author": {
+        "id": "uuid",
+        "name": "Author Name",
+        "avatar": "avatar_url"
+      },
+      "createdAt": "2024-03-21T10:00:00Z"
+    }
+  }
+}
+```
+
 #### Delete Comment
 - **Method**: DELETE
 - **URL**: `/comments/:id`
@@ -1391,7 +1457,188 @@ Authorization: Bearer <your_token>
 ```json
 {
   "status": "success",
-  "message": "Comment deleted successfully"
+  "message": "Comment and its replies deleted successfully"
+}
+```
+
+#### Delete Reply
+- **Method**: DELETE
+- **URL**: `/comments/replies/:replyId`
+- **Auth Required**: Yes
+- **Response**:
+```json
+{
+  "status": "success",
+  "message": "Reply deleted successfully"
+}
+```
+
+### Session Review Routes
+
+#### Create/Update Review
+- **Method**: POST
+- **URL**: `/session-reviews/expert/:expertId`
+- **Auth Required**: Yes
+- **Body**:
+```json
+{
+  "rating": 4.5,
+  "satisfaction": "VERY_SATISFIED",
+  "remarks": "Great session! Very knowledgeable expert.",
+  "sessionId": "session_uuid" // Optional
+}
+```
+- **Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "review": {
+      "id": "uuid",
+      "sessionId": "session_uuid",
+      "rating": 4.5,
+      "satisfaction": "VERY_SATISFIED",
+      "remarks": "Great session! Very knowledgeable expert.",
+      "reviewer": {
+        "id": "uuid",
+        "name": "Reviewer Name",
+        "avatar": "avatar_url"
+      },
+      "createdAt": "2024-03-21T10:00:00Z",
+      "updatedAt": "2024-03-21T10:00:00Z"
+    }
+  }
+}
+```
+
+#### Get Expert Reviews
+- **Method**: GET
+- **URL**: `/session-reviews/expert/:expertId`
+- **Query Parameters**:
+  - `page`: Page number (default: 1)
+  - `limit`: Items per page (default: 10)
+  - `sort`: Sort field (e.g., "createdAt")
+  - `order`: Sort order ("asc" or "desc")
+- **Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "reviews": [
+      {
+        "id": "uuid",
+        "sessionId": "session_uuid",
+        "rating": 4.5,
+        "satisfaction": "VERY_SATISFIED",
+        "remarks": "Great session!",
+        "reviewer": {
+          "id": "uuid",
+          "name": "Reviewer Name",
+          "avatar": "avatar_url"
+        },
+        "createdAt": "2024-03-21T10:00:00Z",
+        "updatedAt": "2024-03-21T10:00:00Z"
+      }
+    ],
+    "averageRating": 4.5,
+    "pagination": {
+      "total": 50,
+      "page": 1,
+      "limit": 10,
+      "pages": 5
+    }
+  }
+}
+```
+
+#### Get User Reviews
+- **Method**: GET
+- **URL**: `/session-reviews/user`
+- **Auth Required**: Yes
+- **Query Parameters**:
+  - `page`: Page number (default: 1)
+  - `limit`: Items per page (default: 10)
+  - `sort`: Sort field (e.g., "createdAt")
+  - `order`: Sort order ("asc" or "desc")
+- **Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "reviews": [
+      {
+        "id": "uuid",
+        "sessionId": "session_uuid",
+        "rating": 4.5,
+        "satisfaction": "VERY_SATISFIED",
+        "remarks": "Great session!",
+        "expert": {
+          "id": "expert_uuid",
+          "headline": "Professional Headline",
+          "user": {
+            "id": "uuid",
+            "name": "Expert Name",
+            "avatar": "avatar_url"
+          }
+        },
+        "createdAt": "2024-03-21T10:00:00Z",
+        "updatedAt": "2024-03-21T10:00:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 50,
+      "page": 1,
+      "limit": 10,
+      "pages": 5
+    }
+  }
+}
+```
+
+#### Update Review
+- **Method**: PATCH
+- **URL**: `/session-reviews/:id`
+- **Auth Required**: Yes
+- **Body**:
+```json
+{
+  "rating": 4.0,
+  "satisfaction": "SATISFIED",
+  "remarks": "Updated review remarks"
+}
+```
+- **Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "review": {
+      "id": "uuid",
+      "sessionId": "session_uuid",
+      "rating": 4.0,
+      "satisfaction": "SATISFIED",
+      "remarks": "Updated review remarks",
+      "reviewer": {
+        "id": "uuid",
+        "name": "Reviewer Name",
+        "avatar": "avatar_url"
+      },
+      "createdAt": "2024-03-21T10:00:00Z",
+      "updatedAt": "2024-03-21T10:00:00Z"
+    }
+  }
+}
+```
+
+#### Delete Review
+- **Method**: DELETE
+- **URL**: `/session-reviews/:id`
+- **Auth Required**: Yes
+- **Response**:
+```json
+{
+  "status": "success",
+  "message": "Review deleted successfully"
 }
 ```
 

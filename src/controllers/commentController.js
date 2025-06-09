@@ -9,26 +9,21 @@ const createComment = catchAsync(async (req, res) => {
     const { content } = req.body;
     const userId = req.user.id;
 
-    // Create comment in a transaction to update post analytics
-    const comment = await prisma.$transaction(async (prisma) => {
-      const comment = await prisma.comment.create({
-        data: {
-          content,
-          postId,
-          authorId: userId
-        },
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true
-            }
+    const comment = await prisma.comment.create({
+      data: {
+        content,
+        postId,
+        authorId: userId
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
           }
         }
-      });
-
-      return comment;
+      }
     });
 
     res.status(201).json({
@@ -41,17 +36,13 @@ const getComments = catchAsync(async (req, res) => {
     const { id: postId } = req.params;
     const { skip, take, orderBy } = req.queryOptions;
 
-    // Merge custom filters with queryOptions.where
-    let where = { 
+    const where = { 
       ...req.queryOptions.where,
-      postId,
-      parentId: null // Only get top-level comments
+      postId
     };
 
-    // Get total count for pagination
     const total = await prisma.comment.count({ where });
 
-    // Get all top-level comments (no parent) with their replies
     const comments = await prisma.comment.findMany({
       where,
       skip,
@@ -78,64 +69,47 @@ const getComments = catchAsync(async (req, res) => {
           orderBy: {
             createdAt: 'asc'
           }
-        },
-        _count: {
-          select: {
-            replies: true
-          }
         }
       }
     });
 
-    // Add reply count to each comment
-    const commentsWithCounts = comments.map(comment => ({
-      ...comment,
-      replyCount: comment._count.replies
-    }));
-
     res.json(formatPaginatedResponse(
-      { comments: commentsWithCounts },
+      { comments },
       total,
       req.queryOptions.page,
       req.queryOptions.limit
     ));
 });
 
-const replyToComment = catchAsync(async (req, res) => {
-    const { id: parentCommentId } = req.params;
+const createReply = catchAsync(async (req, res) => {
+    const { id: commentId } = req.params;
     const { content } = req.body;
     const userId = req.user.id;
 
     // First get the parent comment to get the postId
     const parentComment = await prisma.comment.findUnique({
-      where: { id: parentCommentId }
+      where: { id: commentId }
     });
 
     if (!parentComment) {
       throw { status: 404, message: 'Parent comment not found' };
     }
 
-    // Create reply in a transaction
-    const reply = await prisma.$transaction(async (prisma) => {
-      const reply = await prisma.comment.create({
-        data: {
-          content,
-          postId: parentComment.postId,
-          authorId: userId,
-          parentId: parentCommentId
-        },
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true
-            }
+    const reply = await prisma.reply.create({
+      data: {
+        content,
+        commentId,
+        authorId: userId
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
           }
         }
-      });
-
-      return reply;
+      }
     });
 
     res.status(201).json({
@@ -144,12 +118,50 @@ const replyToComment = catchAsync(async (req, res) => {
     });
 });
 
+const getReplies = catchAsync(async (req, res) => {
+    const { id: commentId } = req.params;
+    const { skip, take, orderBy } = req.queryOptions;
+
+    const where = { 
+      ...req.queryOptions.where,
+      commentId
+    };
+
+    const total = await prisma.reply.count({ where });
+
+    const replies = await prisma.reply.findMany({
+      where,
+      skip,
+      take,
+      orderBy,
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        }
+      }
+    });
+
+    res.json(formatPaginatedResponse(
+      { replies },
+      total,
+      req.queryOptions.page,
+      req.queryOptions.limit
+    ));
+});
+
 const deleteComment = catchAsync(async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
     const comment = await prisma.comment.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        replies: true
+      }
     });
 
     if (!comment) {
@@ -163,8 +175,8 @@ const deleteComment = catchAsync(async (req, res) => {
     // Delete comment and its replies in a transaction
     await prisma.$transaction(async (prisma) => {
       // First delete all replies
-      await prisma.comment.deleteMany({
-        where: { parentId: id }
+      await prisma.reply.deleteMany({
+        where: { commentId: id }
       });
 
       // Then delete the comment itself
@@ -175,7 +187,33 @@ const deleteComment = catchAsync(async (req, res) => {
 
     res.json({
       status: 'success',
-      message: 'Comment deleted successfully'
+      message: 'Comment and its replies deleted successfully'
+    });
+});
+
+const deleteReply = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const reply = await prisma.reply.findUnique({
+      where: { id }
+    });
+
+    if (!reply) {
+      throw { status: 404, message: 'Reply not found' };
+    }
+
+    if (reply.authorId !== userId) {
+      throw { status: 403, message: 'Not authorized to delete this reply' };
+    }
+
+    await prisma.reply.delete({
+      where: { id }
+    });
+
+    res.json({
+      status: 'success',
+      message: 'Reply deleted successfully'
     });
 });
 
@@ -184,7 +222,6 @@ const updateComment = catchAsync(async (req, res) => {
     const { content } = req.body;
     const userId = req.user.id;
 
-    // Check if comment exists and belongs to user
     const existingComment = await prisma.comment.findUnique({
       where: { id },
       select: { authorId: true }
@@ -218,10 +255,51 @@ const updateComment = catchAsync(async (req, res) => {
     });
 });
 
+const updateReply = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+
+    const existingReply = await prisma.reply.findUnique({
+      where: { id },
+      select: { authorId: true }
+    });
+
+    if (!existingReply) {
+      throw { status: 404, message: 'Reply not found' };
+    }
+
+    if (existingReply.authorId !== userId) {
+      throw { status: 403, message: 'You can only update your own replies' };
+    }
+
+    const reply = await prisma.reply.update({
+      where: { id },
+      data: { content },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { reply }
+    });
+});
+
 module.exports = {
   createComment,
   getComments,
-  replyToComment,
+  createReply,
+  getReplies,
   deleteComment,
-  updateComment
+  deleteReply,
+  updateComment,
+  updateReply
 };

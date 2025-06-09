@@ -233,12 +233,21 @@ const updateUser = async (req, res) => {
       avatar,
       interests,
       tags,
+      verified,
       location
     } = req.body;
 
     const user = await prisma.user.findUnique({
       where: { id },
-      include: { Admin: true }
+      include: { 
+        Admin: true,
+        expertDetails: {
+          select: {
+            id: true,
+            badges: true
+          }
+        }
+      }
     });
 
     if (!user) {
@@ -300,6 +309,31 @@ const updateUser = async (req, res) => {
       }
     }
 
+    // Handle expert verification and badges
+    if (user.expertDetails && verified !== undefined) {
+      const currentBadges = user.expertDetails.badges || [];
+      let updatedBadges = [...currentBadges];
+
+      if (verified) {
+        // Add VERIFIED_EXPERT badge if not already present
+        if (!updatedBadges.includes('VERIFIED_EXPERT')) {
+          updatedBadges.push('VERIFIED_EXPERT');
+        }
+      } else {
+        // Remove VERIFIED_EXPERT badge if present
+        updatedBadges = updatedBadges.filter(badge => badge !== 'VERIFIED_EXPERT');
+      }
+
+      // Update expert details with new badges
+      await prisma.expertDetails.update({
+        where: { id: user.expertDetails.id },
+        data: {
+          verified,
+          badges: updatedBadges
+        }
+      });
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
@@ -308,6 +342,7 @@ const updateUser = async (req, res) => {
         role,
         bio,
         avatar,
+        verified,
         interests: interests || undefined,
         tags: tags || undefined,
         location: location || undefined

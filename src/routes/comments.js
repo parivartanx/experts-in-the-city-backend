@@ -7,14 +7,16 @@ const router = express.Router();
 // All comment routes are protected
 router.use(isAuthenticated);
 
-// Get comments for a post
+// Comment routes
 router.get('/post/:postId', commentController.getComments);
-
-// Create comment on a post
 router.post('/post/:postId', commentController.createComment);
-
-// Update/Delete specific comment
 router.patch('/:commentId', commentController.updateComment);
 router.delete('/:commentId', commentController.deleteComment);
+
+// Reply routes
+router.get('/:commentId/replies', commentController.getReplies);
+router.post('/:commentId/replies', commentController.createReply);
+router.patch('/replies/:replyId', commentController.updateReply);
+router.delete('/replies/:replyId', commentController.deleteReply);
 
 module.exports = router;
