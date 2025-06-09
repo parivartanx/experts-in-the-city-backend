@@ -8,13 +8,13 @@ class TokenHandler {
   static generateTokens(userId, role) {
     const accessToken = jwt.sign(
       { userId, role },
-      process.env.JWT_ACCESS_SECRET,
+      process.env.JWT_SECRET,
       { expiresIn: '15m' }
     );
     
     const refreshToken = jwt.sign(
       { userId, role },
-      process.env.JWT_REFRESH_SECRET,
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -23,7 +23,7 @@ class TokenHandler {
 
   static async verifyAccessToken(token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId }
       });
@@ -46,7 +46,7 @@ class TokenHandler {
 
   static async verifyRefreshToken(token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await prisma.user.findUnique({
         where: { id: decoded.userId }
       });
