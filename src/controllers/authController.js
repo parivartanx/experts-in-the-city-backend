@@ -135,6 +135,7 @@ exports.googleSignIn = async (req, res, next) => {
 
     // Generate tokens
     const tokens = TokenHandler.generateTokens(user.id, user.role);
+    console.log(tokens)
 
     res.status(200).json({
       status: 'success',

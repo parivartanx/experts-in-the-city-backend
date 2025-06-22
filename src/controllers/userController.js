@@ -39,9 +39,167 @@ const getUserById = catchAsync(async (req, res, next) => {
 
 // protected controller
 const getProfile = catchAsync(async (req, res) => {
+  // First get the user to check their role
+  const userWithRole = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { role: true }
+  });
+
+  // Base select object for all users
+  const baseSelect = {
+    id: true,
+    email: true,
+    name: true,
+    role: true,
+    bio: true,
+    avatar: true,
+    interests: true,
+    tags: true,
+    location: true,
+    createdAt: true,
+    updatedAt: true,
+    posts: {
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        image: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            likes: true,
+            comments: true
+          }
+        }
+      }
+    },
+    followers: {
+      select: {
+        id: true,
+        follower: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            role: true
+          }
+        },
+        createdAt: true
+      }
+    },
+    following: {
+      select: {
+        id: true,
+        following: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            role: true
+          }
+        },
+        createdAt: true
+      }
+    },
+    _count: {
+      select: {
+        posts: true,
+        followers: true,
+        following: true,
+        comments: true,
+        likes: true
+      }
+    }
+  };
+
+  // Add expert details only if user is an EXPERT
+  if (userWithRole.role === 'EXPERT') {
+    baseSelect.expertDetails = {
+      select: {
+        id: true,
+        headline: true,
+        summary: true,
+        expertise: true,
+        experience: true,
+        hourlyRate: true,
+        about: true,
+        availability: true,
+        languages: true,
+        verified: true,
+        badges: true,
+        progressLevel: true,
+        progressShow: true,
+        ratings: true,
+        createdAt: true,
+        updatedAt: true,
+        certifications: {
+          select: {
+            id: true,
+            name: true,
+            issuingOrganization: true,
+            issueDate: true,
+            expiryDate: true,
+            credentialId: true,
+            credentialUrl: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        },
+        experiences: {
+          select: {
+            id: true,
+            title: true,
+            company: true,
+            location: true,
+            startDate: true,
+            endDate: true,
+            isCurrent: true,
+            description: true,
+            skills: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        },
+        awards: {
+          select: {
+            id: true,
+            title: true,
+            issuer: true,
+            date: true,
+            description: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        },
+        education: {
+          select: {
+            id: true,
+            school: true,
+            degree: true,
+            fieldOfStudy: true,
+            startDate: true,
+            endDate: true,
+            isCurrent: true,
+            description: true,
+            grade: true,
+            activities: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        }
+      }
+    };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: baseSelect
+  });
+
   res.json({
     status: 'success',
-    data: { user: req.user }
+    data: { user }
   });
 });
 
@@ -61,7 +219,7 @@ const updateProfile = catchAsync(async (req, res) => {
 
   // Validate location object if provided
   if (location) {
-    const validLocationFields = ['pincode', 'address', 'country', 'latitude', 'longitude'];
+    const validLocationFields = ['pincode', 'address', 'country'];
     const providedFields = Object.keys(location);
     
     // Check if all provided fields are valid
