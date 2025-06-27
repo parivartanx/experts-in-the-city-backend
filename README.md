@@ -580,8 +580,7 @@ Authorization: Bearer <your_token>
       "author": {
         "id": "author_uuid",
         "name": "Author Name",
-        "avatar": "avatar_url",
-        "role": "USER"
+        "avatar": "avatar_url"
       },
       "tags": [
         {
@@ -2084,3 +2083,315 @@ Authorization: Bearer <your_token>
 - Files are organized in type-specific folders in S3 (images/, documents/, videos/)
 - Each file type has its own size limit
 - Files are stored in user-specific subfolders
+
+### Category Routes
+
+#### Create Category
+- **Method**: POST
+- **URL**: `/categories`
+- **Auth Required**: No
+- **Body**:
+```json
+{
+  "name": "Technology"
+}
+```
+- **Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "Technology",
+    "subcategories": [],
+    "createdAt": "2024-03-21T10:00:00Z",
+    "updatedAt": "2024-03-21T10:00:00Z"
+  }
+}
+```
+
+#### Get All Categories
+- **Method**: GET
+- **URL**: `/categories`
+- **Auth Required**: No
+- **Response**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Technology",
+      "subcategories": [
+        {
+          "id": "subcategory_uuid",
+          "name": "Web Development",
+          "categoryId": "uuid",
+          "createdAt": "2024-03-21T10:00:00Z",
+          "updatedAt": "2024-03-21T10:00:00Z"
+        }
+      ],
+      "createdAt": "2024-03-21T10:00:00Z",
+      "updatedAt": "2024-03-21T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Get Category by ID
+- **Method**: GET
+- **URL**: `/categories/:id`
+- **Auth Required**: No
+- **Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "Technology",
+    "subcategories": [
+      {
+        "id": "subcategory_uuid",
+        "name": "Web Development",
+        "categoryId": "uuid",
+        "createdAt": "2024-03-21T10:00:00Z",
+        "updatedAt": "2024-03-21T10:00:00Z"
+      }
+    ],
+    "createdAt": "2024-03-21T10:00:00Z",
+    "updatedAt": "2024-03-21T10:00:00Z"
+  }
+}
+```
+
+#### Update Category
+- **Method**: PUT
+- **URL**: `/categories/:id`
+- **Auth Required**: No
+- **Body**:
+```json
+{
+  "name": "Updated Technology"
+}
+```
+- **Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "Updated Technology",
+    "subcategories": [],
+    "createdAt": "2024-03-21T10:00:00Z",
+    "updatedAt": "2024-03-21T10:00:00Z"
+  }
+}
+```
+
+#### Delete Category
+- **Method**: DELETE
+- **URL**: `/categories/:id`
+- **Auth Required**: No
+- **Response**:
+```json
+{
+  "success": true,
+  "message": "Category deleted successfully"
+}
+```
+
+### Subcategory Routes
+
+#### Create Subcategory
+- **Method**: POST
+- **URL**: `/subcategories`
+- **Auth Required**: No
+- **Body**:
+```json
+{
+  "name": "Web Development",
+  "categoryId": "category_uuid"
+}
+```
+- **Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "Web Development",
+    "categoryId": "category_uuid",
+    "category": {
+      "id": "category_uuid",
+      "name": "Technology",
+      "createdAt": "2024-03-21T10:00:00Z",
+      "updatedAt": "2024-03-21T10:00:00Z"
+    },
+    "createdAt": "2024-03-21T10:00:00Z",
+    "updatedAt": "2024-03-21T10:00:00Z"
+  }
+}
+```
+
+#### Get All Subcategories
+- **Method**: GET
+- **URL**: `/subcategories`
+- **Auth Required**: No
+- **Query Parameters**:
+  - `categoryId` (optional): Filter subcategories by category ID
+- **Response**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Web Development",
+      "categoryId": "category_uuid",
+      "category": {
+        "id": "category_uuid",
+        "name": "Technology",
+        "createdAt": "2024-03-21T10:00:00Z",
+        "updatedAt": "2024-03-21T10:00:00Z"
+      },
+      "createdAt": "2024-03-21T10:00:00Z",
+      "updatedAt": "2024-03-21T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Get Subcategory by ID
+- **Method**: GET
+- **URL**: `/subcategories/:id`
+- **Auth Required**: No
+- **Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "Web Development",
+    "categoryId": "category_uuid",
+    "category": {
+      "id": "category_uuid",
+      "name": "Technology",
+      "createdAt": "2024-03-21T10:00:00Z",
+      "updatedAt": "2024-03-21T10:00:00Z"
+    },
+    "createdAt": "2024-03-21T10:00:00Z",
+    "updatedAt": "2024-03-21T10:00:00Z"
+  }
+}
+```
+
+#### Update Subcategory
+- **Method**: PUT
+- **URL**: `/subcategories/:id`
+- **Auth Required**: No
+- **Body**:
+```json
+{
+  "name": "Updated Web Development",
+  "categoryId": "category_uuid"
+}
+```
+- **Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "Updated Web Development",
+    "categoryId": "category_uuid",
+    "category": {
+      "id": "category_uuid",
+      "name": "Technology",
+      "createdAt": "2024-03-21T10:00:00Z",
+      "updatedAt": "2024-03-21T10:00:00Z"
+    },
+    "createdAt": "2024-03-21T10:00:00Z",
+    "updatedAt": "2024-03-21T10:00:00Z"
+  }
+}
+```
+
+#### Delete Subcategory
+- **Method**: DELETE
+- **URL**: `/subcategories/:id`
+- **Auth Required**: No
+- **Response**:
+```json
+{
+  "success": true,
+  "message": "Subcategory deleted successfully"
+}
+```
+
+## Error Responses
+
+All endpoints may return the following error responses:
+
+### 400 Bad Request
+```json
+{
+  "error": "Validation error message"
+}
+```
+
+### 404 Not Found
+```json
+{
+  "error": "Resource not found"
+}
+```
+
+### 500 Internal Server Error
+```json
+{
+  "error": "Internal server error"
+}
+```
+
+## Database Schema
+
+The application uses PostgreSQL with Prisma ORM. Key models include:
+
+- **User**: User accounts and profiles
+- **ExpertDetails**: Expert-specific information
+- **Post**: User posts and content
+- **Comment**: Post comments
+- **Category**: Main categories
+- **Subcategory**: Subcategories within categories
+- **Follow**: User following relationships
+- **Notification**: User notifications
+- **SessionReview**: Expert session reviews
+
+## Environment Variables
+
+Required environment variables:
+
+```env
+DATABASE_URL=postgresql://username:password@host:port/database
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_PRIVATE_KEY=your_firebase_private_key
+FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+AWS_ACCESS_KEY_ID=your_aws_access_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=your_aws_region
+AWS_S3_BUCKET=your_s3_bucket_name
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
