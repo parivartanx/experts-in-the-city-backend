@@ -55,35 +55,6 @@ enum SatisfactionLevel {
   VERY_SATISFIED
 }
 
-enum Expertise {
-  TECHNOLOGY
-  BUSINESS
-  HEALTHCARE
-  EDUCATION
-  ARTS
-  SCIENCE
-  ENGINEERING
-  LAW
-  FINANCE
-  MARKETING
-  DESIGN
-  MEDIA
-  SPORTS
-  CULINARY
-  LANGUAGES
-  PSYCHOLOGY
-  ENVIRONMENT
-  AGRICULTURE
-  CONSTRUCTION
-  HOSPITALITY
-  RETAIL
-  TRANSPORTATION
-  ENTERTAINMENT
-  NON_PROFIT
-  GOVERNMENT
-  OTHER
-}
-
 model Admin {
   id          String   @id @default(uuid())
   email       String   @unique
@@ -104,7 +75,7 @@ model User {
   role              UserRole            @default(USER) // USER, EXPERT
   bio               String?
   avatar            String?
-  interests         Expertise[]         // Array of expertise enum
+  interests         String[]         // Array of expertise enum
   tags              String[]            // Array of user tags
   location          Json?               // Location object with optional fields
   createdAt         DateTime            @default(now())
@@ -131,7 +102,7 @@ model ExpertDetails {
   user          User          @relation(fields: [userId], references: [id])
   headline      String?       // Professional headline/title
   summary       String?       // Professional summary
-  expertise     Expertise[]   // Array of expertise enum
+  expertise     String[]   // Array of expertise enum
   experience    Int          // Years of experience
   hourlyRate    Float
   about         String
