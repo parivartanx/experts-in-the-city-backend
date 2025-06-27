@@ -331,3 +331,23 @@ model SessionReview {
   @@index([reviewerId])
   @@index([expertId])
 }
+
+model Category {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  subcategories Subcategory[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Subcategory {
+  id          String    @id @default(uuid())
+  name        String
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([name, categoryId])
+  @@index([categoryId])
+}

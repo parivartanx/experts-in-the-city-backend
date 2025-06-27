@@ -9,6 +9,7 @@ const followRoutes = require('./follows');
 const notificationRoutes = require('./notifications');
 const authRoutes = require('./auth');
 const uploadRoutes = require('./upload');
+const categoryRoutes = require('./categories');
 
 const router = express.Router();
 
@@ -36,5 +37,6 @@ router.use('/likes', likeRoutes);
 router.use('/follows', followRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/upload', uploadRoutes);
+router.use('/', categoryRoutes);
 
 module.exports = router;
