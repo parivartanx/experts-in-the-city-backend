@@ -2,26 +2,50 @@ const { PrismaClient } = require('@prisma/client');
 const { formatPaginatedResponse } = require('../middleware/queryHandler');
 const { catchAsync } = require('../middleware/errorHandler');
 const { AppError, ErrorCodes, HttpStatus } = require('../utils/errors');
+const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
 const createExpertProfile = catchAsync(async (req, res) => {
-  const { 
-    headline,
-    summary,
-    expertise,
-    experience,
-    hourlyRate,
-    about,
-    availability,
-    languages,
-    certifications,
-    experiences,
-    awards,
-    education
+  let userId;
+  let user;
+  const {
+    name, email, password, bio, avatar, interests, tags, location,
+    headline, summary, expertise, experience, hourlyRate, about, availability, languages,
+    certifications, experiences, awards, education
   } = req.body;
-  
-  const userId = req.user.id;
+
+  // If public registration (no req.user, but user fields provided)
+  if (!req.user && email && password && name) {
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      throw new AppError('Email already in use', HttpStatus.BAD_REQUEST, ErrorCodes.DUPLICATE_EMAIL);
+    }
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    // Create user
+    user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        bio,
+        avatar,
+        interests,
+        tags,
+        location,
+        role: 'EXPERT'
+      }
+    });
+    userId = user.id;
+  } else if (req.user) {
+    // Authenticated user
+    userId = req.user.id;
+    user = req.user;
+  } else {
+    throw new AppError('Invalid request', HttpStatus.BAD_REQUEST, ErrorCodes.INVALID_INPUT);
+  }
 
   // Check if expert profile already exists
   const existingProfile = await prisma.expertDetails.findUnique({
@@ -41,7 +65,6 @@ const createExpertProfile = catchAsync(async (req, res) => {
         about,
         availability,
         languages,
-        // Handle related data
         certifications: {
           create: certifications?.map(cert => ({
             name: cert.name,
@@ -96,84 +119,77 @@ const createExpertProfile = catchAsync(async (req, res) => {
 
     return res.json({
       status: 'success',
-      data: { expert: updatedProfile }
+      data: { user, expert: updatedProfile }
     });
   }
 
-  // Create new profile and update user role
-  const [expertProfile] = await prisma.$transaction([
-    prisma.expertDetails.create({
-      data: {
-        userId,
-        headline,
-        summary,
-        expertise,
-        experience,
-        hourlyRate,
-        about,
-        availability,
-        languages,
-        // Handle related data
-        certifications: {
-          create: certifications?.map(cert => ({
-            name: cert.name,
-            issuingOrganization: cert.issuingOrganization,
-            issueDate: new Date(cert.issueDate),
-            expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
-            credentialId: cert.credentialId,
-            credentialUrl: cert.credentialUrl
-          }))
-        },
-        experiences: {
-          create: experiences?.map(exp => ({
-            title: exp.title,
-            company: exp.company,
-            location: exp.location,
-            startDate: new Date(exp.startDate),
-            endDate: exp.endDate ? new Date(exp.endDate) : null,
-            isCurrent: exp.isCurrent || false,
-            description: exp.description,
-            skills: exp.skills || []
-          }))
-        },
-        awards: {
-          create: awards?.map(award => ({
-            title: award.title,
-            issuer: award.issuer,
-            date: new Date(award.date),
-            description: award.description
-          }))
-        },
-        education: {
-          create: education?.map(edu => ({
-            school: edu.school,
-            degree: edu.degree,
-            fieldOfStudy: edu.fieldOfStudy,
-            startDate: new Date(edu.startDate),
-            endDate: edu.endDate ? new Date(edu.endDate) : null,
-            isCurrent: edu.isCurrent || false,
-            description: edu.description,
-            grade: edu.grade,
-            activities: edu.activities
-          }))
-        }
+  // Create new expert profile (and user if public registration)
+  const expertProfile = await prisma.expertDetails.create({
+    data: {
+      userId,
+      headline,
+      summary,
+      expertise,
+      experience,
+      hourlyRate,
+      about,
+      availability,
+      languages,
+      certifications: {
+        create: certifications?.map(cert => ({
+          name: cert.name,
+          issuingOrganization: cert.issuingOrganization,
+          issueDate: new Date(cert.issueDate),
+          expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
+          credentialId: cert.credentialId,
+          credentialUrl: cert.credentialUrl
+        }))
       },
-      include: {
-        certifications: true,
-        experiences: true,
-        awards: true,
-        education: true
+      experiences: {
+        create: experiences?.map(exp => ({
+          title: exp.title,
+          company: exp.company,
+          location: exp.location,
+          startDate: new Date(exp.startDate),
+          endDate: exp.endDate ? new Date(exp.endDate) : null,
+          isCurrent: exp.isCurrent || false,
+          description: exp.description,
+          skills: exp.skills || []
+        }))
+      },
+      awards: {
+        create: awards?.map(award => ({
+          title: award.title,
+          issuer: award.issuer,
+          date: new Date(award.date),
+          description: award.description
+        }))
+      },
+      education: {
+        create: education?.map(edu => ({
+          school: edu.school,
+          degree: edu.degree,
+          fieldOfStudy: edu.fieldOfStudy,
+          startDate: new Date(edu.startDate),
+          endDate: edu.endDate ? new Date(edu.endDate) : null,
+          isCurrent: edu.isCurrent || false,
+          description: edu.description,
+          grade: edu.grade,
+          activities: edu.activities
+        }))
       }
-    }),
-    prisma.user.update({
-      where: { id: userId },
-      data: { role: 'EXPERT' }
-    })
-  ]);
+    },
+    include: {
+      certifications: true,
+      experiences: true,
+      awards: true,
+      education: true
+    }
+  });
 
   res.status(201).json({
     status: 'success',
-    data: { expert: expertProfile }
+    data: { user, expert: expertProfile }
   });
 });
 

@@ -783,11 +783,82 @@ Authorization: Bearer <your_token>
 
 ### Expert Routes
 
-#### Create/Update Expert Profile
+#### Create/Update Expert Profile (Public or Authenticated)
 - **Method**: POST
 - **URL**: `/experts/profile`
-- **Auth**: Required
-- **Request Body**:
+- **Auth**: Optional (Authenticated user can update or become expert; public can register as expert directly)
+- **Description**: This endpoint allows either an authenticated user to create/update their expert profile, or a new user to register and become an expert in a single step. If called without authentication, the request must include user fields (name, email, password, etc.).
+- **Request Body** (for public registration):
+  ```json
+  {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "password": "securePassword123",
+    "bio": "Short bio here",                // optional
+    "avatar": "https://...",                // optional
+    "interests": ["AI", "ML"],              // optional
+    "tags": ["mentor", "speaker"],          // optional
+    "location": {                             // optional
+      "pincode": "123456",
+      "address": "123 Main St",
+      "country": "USA",
+      "latitude": 40.7128,
+      "longitude": -74.0060
+    },
+    "headline": "Senior Data Scientist",
+    "summary": "10+ years of experience in data science and machine learning.",
+    "expertise": ["Data Science", "Machine Learning", "AI"],
+    "experience": 10,
+    "hourlyRate": 100,
+    "about": "Passionate about solving real-world problems with data.",
+    "availability": "Weekdays 9am-5pm",
+    "languages": ["English", "Spanish"],
+    "certifications": [
+      {
+        "name": "Certified Data Scientist",
+        "issuingOrganization": "Data Science Institute",
+        "issueDate": "2020-01-15",
+        "expiryDate": "2025-01-15",
+        "credentialId": "DSI-12345",
+        "credentialUrl": "https://verify.example.com/DSI-12345"
+      }
+    ],
+    "experiences": [
+      {
+        "title": "Lead Data Scientist",
+        "company": "TechCorp",
+        "location": "New York, NY",
+        "startDate": "2018-06-01",
+        "endDate": "2022-12-31",
+        "isCurrent": false,
+        "description": "Led a team of data scientists.",
+        "skills": ["Python", "TensorFlow"]
+      }
+    ],
+    "awards": [
+      {
+        "title": "Best Data Scientist",
+        "issuer": "Tech Awards",
+        "date": "2021-11-20",
+        "description": "Awarded for outstanding contributions."
+      }
+    ],
+    "education": [
+      {
+        "school": "MIT",
+        "degree": "PhD",
+        "fieldOfStudy": "Computer Science",
+        "startDate": "2012-09-01",
+        "endDate": "2017-06-30",
+        "isCurrent": false,
+        "description": "Thesis on deep learning.",
+        "grade": "A",
+        "activities": "AI Club"
+      }
+    ]
+  }
+  ```
+- **Request Body** (for authenticated user):
   ```json
   {
     "headline": "Professional Headline",
@@ -798,50 +869,10 @@ Authorization: Bearer <your_token>
     "about": "About section",
     "availability": "Mon-Fri, 9-5",
     "languages": ["English", "Spanish"],
-    "sectionOperation": "update", // 'add', 'update', or 'delete'
-    "certifications": [
-      {
-        "name": "Certification Name",
-        "issuingOrganization": "Organization",
-        "issueDate": "2023-01-01",
-        "expiryDate": "2024-01-01",
-        "credentialId": "ID123",
-        "credentialUrl": "https://example.com/cert"
-      }
-    ],
-    "experiences": [
-      {
-        "title": "Job Title",
-        "company": "Company Name",
-        "location": "Location",
-        "startDate": "2020-01-01",
-        "endDate": "2023-01-01",
-        "isCurrent": false,
-        "description": "Job Description",
-        "skills": ["Skill 1", "Skill 2"]
-      }
-    ],
-    "awards": [
-      {
-        "title": "Award Title",
-        "issuer": "Issuing Organization",
-        "date": "2023-01-01",
-        "description": "Award Description"
-      }
-    ],
-    "education": [
-      {
-        "school": "School Name",
-        "degree": "Degree Name",
-        "fieldOfStudy": "Field of Study",
-        "startDate": "2015-01-01",
-        "endDate": "2019-01-01",
-        "isCurrent": false,
-        "description": "Education Description",
-        "grade": "A",
-        "activities": ["Activity 1", "Activity 2"]
-      }
-    ]
+    "certifications": [...],
+    "experiences": [...],
+    "awards": [...],
+    "education": [...]
   }
   ```
 - **Response**:
@@ -849,6 +880,12 @@ Authorization: Bearer <your_token>
   {
     "status": "success",
     "data": {
+      "user": {
+        "id": "user_id",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "role": "EXPERT"
+      },
       "expert": {
         "id": "expert_id",
         "headline": "Professional Headline",
@@ -862,10 +899,7 @@ Authorization: Bearer <your_token>
         "certifications": [...],
         "experiences": [...],
         "awards": [...],
-        "education": [...],
-        "user": {
-          "role": "EXPERT"
-        }
+        "education": [...]
       }
     }
   }

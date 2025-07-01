@@ -9,7 +9,7 @@ const {
 } = require('../controllers/expertController');
 
 // Create/Update expert profile
-router.post('/become-expert', isAuthenticated, createExpertProfile);
+router.post('/become-expert', createExpertProfile);
 
 // Get expert profile
 router.get('/:id', getExpertProfile);
