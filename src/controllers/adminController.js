@@ -719,6 +719,448 @@ const updatePost = async (req, res) => {
   }
 };
 
+// Get all experts with filtering, sorting, and pagination
+const getAllExperts = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      expertise,
+      sortBy = 'experience',
+      sortOrder = 'desc',
+      startDate,
+      endDate
+    } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    // Build where clause
+    const where = {
+      user: { role: 'EXPERT' }
+    };
+    if (search) {
+      where.OR = [
+        { headline: { contains: search, mode: 'insensitive' } },
+        { summary: { contains: search, mode: 'insensitive' } },
+        { about: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+    if (expertise) {
+      where.expertise = { hasSome: expertise.split(',') };
+    }
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = new Date(startDate);
+      if (endDate) where.createdAt.lte = new Date(endDate);
+    }
+
+    const [experts, total] = await Promise.all([
+      prisma.expertDetails.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatar: true,
+              bio: true,
+              role: true,
+              interests: true,
+              tags: true,
+              location: true,
+              createdAt: true
+            }
+          },
+          certifications: {
+            select: {
+              name: true,
+              issuingOrganization: true,
+              issueDate: true
+            },
+            orderBy: { issueDate: 'desc' },
+            take: 3
+          },
+          experiences: {
+            select: {
+              title: true,
+              company: true,
+              startDate: true,
+              endDate: true,
+              isCurrent: true
+            },
+            orderBy: { startDate: 'desc' },
+            take: 3
+          }
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take
+      }),
+      prisma.expertDetails.count({ where })
+    ]);
+
+    res.json({
+      status: 'success',
+      data: {
+        experts,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: take,
+          pages: Math.ceil(total / take)
+        }
+      }
+    });
+  } catch (error) {
+    throw new AppError(
+      'Failed to fetch experts',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+      ErrorCodes.INTERNAL_ERROR
+    );
+  }
+};
+
+// Get expert by ID with detailed information
+const getExpertById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const expert = await prisma.expertDetails.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            bio: true,
+            role: true,
+            interests: true,
+            tags: true,
+            location: true,
+            ratings: true,
+            badges: true,
+            progressLevel: true,
+            progressShow: true,
+            reviews: true,
+            createdAt: true,
+            _count: {
+              select: {
+                followers: true,
+                following: true
+              }
+            }
+          }
+        },
+        certifications: { orderBy: { issueDate: 'desc' } },
+        experiences: { orderBy: { startDate: 'desc' } },
+        awards: { orderBy: { date: 'desc' } },
+        education: { orderBy: { startDate: 'desc' } }
+      }
+    });
+    if (!expert) {
+      throw new AppError(
+        'Expert profile not found',
+        HttpStatus.NOT_FOUND,
+        ErrorCodes.NOT_FOUND
+      );
+    }
+    // Transform the response to include follower and following counts
+    const transformedExpert = {
+      ...expert,
+      user: {
+        ...expert.user,
+        followersCount: expert.user._count.followers,
+        followingCount: expert.user._count.following
+      }
+    };
+    delete transformedExpert.user._count;
+    res.json({
+      status: 'success',
+      data: { expert: transformedExpert }
+    });
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(
+      'Failed to fetch expert',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+      ErrorCodes.INTERNAL_ERROR
+    );
+  }
+};
+
+// Update expert by ID (admin can update any expert)
+const updateExpert = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      headline,
+      summary,
+      expertise,
+      experience,
+      hourlyRate,
+      about,
+      availability,
+      languages,
+      certifications,
+      experiences,
+      awards,
+      education,
+      sectionOperation = 'update'
+    } = req.body;
+
+    const expert = await prisma.expertDetails.findUnique({ where: { id } });
+    if (!expert) {
+      throw new AppError(
+        'Expert profile not found',
+        HttpStatus.NOT_FOUND,
+        ErrorCodes.NOT_FOUND
+      );
+    }
+    // Prepare the update data
+    const updateData = {
+      headline,
+      summary,
+      expertise,
+      experience,
+      hourlyRate,
+      about,
+      availability,
+      languages
+    };
+    // Handle section updates based on operation type
+    if (sectionOperation === 'add') {
+      if (certifications) {
+        updateData.certifications = {
+          create: certifications.map(cert => ({
+            name: cert.name,
+            issuingOrganization: cert.issuingOrganization,
+            issueDate: new Date(cert.issueDate),
+            expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
+            credentialId: cert.credentialId,
+            credentialUrl: cert.credentialUrl
+          }))
+        };
+      }
+      if (experiences) {
+        updateData.experiences = {
+          create: experiences.map(exp => ({
+            title: exp.title,
+            company: exp.company,
+            location: exp.location,
+            startDate: new Date(exp.startDate),
+            endDate: exp.endDate ? new Date(exp.endDate) : null,
+            isCurrent: exp.isCurrent || false,
+            description: exp.description,
+            skills: exp.skills || []
+          }))
+        };
+      }
+      if (awards) {
+        updateData.awards = {
+          create: awards.map(award => ({
+            title: award.title,
+            issuer: award.issuer,
+            date: new Date(award.date),
+            description: award.description
+          }))
+        };
+      }
+      if (education) {
+        updateData.education = {
+          create: education.map(edu => ({
+            school: edu.school,
+            degree: edu.degree,
+            fieldOfStudy: edu.fieldOfStudy,
+            startDate: new Date(edu.startDate),
+            endDate: edu.endDate ? new Date(edu.endDate) : null,
+            isCurrent: edu.isCurrent || false,
+            description: edu.description,
+            grade: edu.grade,
+            activities: edu.activities
+          }))
+        };
+      }
+    } else if (sectionOperation === 'update') {
+      if (certifications) {
+        updateData.certifications = {
+          deleteMany: {},
+          create: certifications.map(cert => ({
+            name: cert.name,
+            issuingOrganization: cert.issuingOrganization,
+            issueDate: new Date(cert.issueDate),
+            expiryDate: cert.expiryDate ? new Date(cert.expiryDate) : null,
+            credentialId: cert.credentialId,
+            credentialUrl: cert.credentialUrl
+          }))
+        };
+      }
+      if (experiences) {
+        updateData.experiences = {
+          deleteMany: {},
+          create: experiences.map(exp => ({
+            title: exp.title,
+            company: exp.company,
+            location: exp.location,
+            startDate: new Date(exp.startDate),
+            endDate: exp.endDate ? new Date(exp.endDate) : null,
+            isCurrent: exp.isCurrent || false,
+            description: exp.description,
+            skills: exp.skills || []
+          }))
+        };
+      }
+      if (awards) {
+        updateData.awards = {
+          deleteMany: {},
+          create: awards.map(award => ({
+            title: award.title,
+            issuer: award.issuer,
+            date: new Date(award.date),
+            description: award.description
+          }))
+        };
+      }
+      if (education) {
+        updateData.education = {
+          deleteMany: {},
+          create: education.map(edu => ({
+            school: edu.school,
+            degree: edu.degree,
+            fieldOfStudy: edu.fieldOfStudy,
+            startDate: new Date(edu.startDate),
+            endDate: edu.endDate ? new Date(edu.endDate) : null,
+            isCurrent: edu.isCurrent || false,
+            description: edu.description,
+            grade: edu.grade,
+            activities: edu.activities
+          }))
+        };
+      }
+    } else if (sectionOperation === 'delete') {
+      if (certifications) {
+        updateData.certifications = {
+          deleteMany: {
+            id: { in: certifications.map(c => c.id) }
+          }
+        };
+      }
+      if (experiences) {
+        updateData.experiences = {
+          deleteMany: {
+            id: { in: experiences.map(e => e.id) }
+          }
+        };
+      }
+      if (awards) {
+        updateData.awards = {
+          deleteMany: {
+            id: { in: awards.map(a => a.id) }
+          }
+        };
+      }
+      if (education) {
+        updateData.education = {
+          deleteMany: {
+            id: { in: education.map(e => e.id) }
+          }
+        };
+      }
+    }
+    const updatedExpert = await prisma.expertDetails.update({
+      where: { id },
+      data: updateData,
+      include: {
+        user: { select: { role: true } },
+        certifications: true,
+        experiences: true,
+        awards: true,
+        education: true
+      }
+    });
+    // Ensure user role is EXPERT
+    if (updatedExpert.user.role !== 'EXPERT') {
+      await prisma.user.update({
+        where: { id: updatedExpert.userId },
+        data: { role: 'EXPERT' }
+      });
+    }
+    res.json({
+      status: 'success',
+      data: { expert: updatedExpert }
+    });
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(
+      'Failed to update expert',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+      ErrorCodes.INTERNAL_ERROR
+    );
+  }
+};
+
+// Delete expert by ID (admin only)
+const deleteExpert = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Find expert details
+    const expert = await prisma.expertDetails.findUnique({
+      where: { id },
+      include: { user: true }
+    });
+    if (!expert) {
+      throw new AppError(
+        'Expert profile not found',
+        HttpStatus.NOT_FOUND,
+        ErrorCodes.NOT_FOUND
+      );
+    }
+    const userId = expert.userId;
+    // Delete all related expert data and user
+    await prisma.$transaction([
+      // Delete expert sections
+      prisma.certification.deleteMany({ where: { expertDetailsId: id } }),
+      prisma.experience.deleteMany({ where: { expertDetailsId: id } }),
+      prisma.award.deleteMany({ where: { expertDetailsId: id } }),
+      prisma.education.deleteMany({ where: { expertDetailsId: id } }),
+      // Delete expert details
+      prisma.expertDetails.delete({ where: { id } }),
+      // Delete user's posts
+      prisma.post.deleteMany({ where: { authorId: userId } }),
+      // Delete user's comments
+      prisma.comment.deleteMany({ where: { authorId: userId } }),
+      // Delete user's likes
+      prisma.like.deleteMany({ where: { userId } }),
+      // Delete user's follows
+      prisma.follow.deleteMany({
+        where: {
+          OR: [
+            { followerId: userId },
+            { followingId: userId }
+          ]
+        }
+      }),
+      // Delete user
+      prisma.user.delete({ where: { id: userId } })
+    ]);
+    res.json({
+      status: 'success',
+      message: 'Expert and all related data deleted successfully'
+    });
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(
+      'Failed to delete expert',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+      ErrorCodes.INTERNAL_ERROR
+    );
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllUsers,
@@ -728,5 +1170,10 @@ module.exports = {
   getAllPosts,
   getPostById,
   updatePost,
-  deletePost
+  deletePost,
+  // Expert management
+  getAllExperts,
+  getExpertById,
+  updateExpert,
+  deleteExpert
 };
