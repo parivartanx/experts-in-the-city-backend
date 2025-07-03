@@ -11,8 +11,13 @@ const {
   getAllPosts,
   getPostById,
   updatePost,
-  deletePost
+  deletePost,
+  getAllExperts,
+  getExpertById,
+  updateExpert,
+  deleteExpert
 } = require('../controllers/adminController');
+
 
 // Apply admin middleware to all routes
 router.use(isAuthenticated, isAdmin);
@@ -31,5 +36,11 @@ router.get('/posts', getAllPosts);
 router.get('/posts/:id', getPostById);
 router.patch('/posts/:id', updatePost);
 router.delete('/posts/:id', deletePost);
+
+// Expert management
+router.get('/experts', getAllExperts);
+router.get('/experts/:id', getExpertById);
+router.patch('/experts/:id', updateExpert);
+router.delete('/experts/:id', deleteExpert);
 
 module.exports = router;
