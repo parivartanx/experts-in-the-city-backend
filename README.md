@@ -144,6 +144,33 @@ Authorization: Bearer <your_token>
 }
 ```
 
+#### Admin Login
+- **Method**: POST
+- **URL**: `/auth/admin-login`
+- **Body**:
+```json
+{
+  "email": "admin@example.com",
+  "password": "adminpassword"
+}
+```
+- **Response**:
+```json
+{
+  "status": "success",
+  "data": {
+    "user": {
+      "id": "uuid",
+      "email": "admin@example.com",
+      "name": "Admin Name",
+      "role": "ADMIN"
+    },
+    "accessToken": "jwt_access_token",
+    "refreshToken": "jwt_refresh_token"
+  }
+}
+```
+
 #### Google Sign In
 - **Method**: POST
 - **URL**: `/auth/google`

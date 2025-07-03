@@ -107,6 +107,37 @@ exports.login = async (req, res, next) => {
   }
 };
 
+// Admin Login
+exports.adminLogin = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const user = await prisma.admin.findUnique({
+      where: { email }
+    });
+
+    if (!user || !(await bcrypt.compare(password, user.password)) || user.role !== 'ADMIN') {
+      throw new AppError('Invalid credentials', 401);
+    }
+
+    const tokens = TokenHandler.generateTokens(user.id, user.role);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        },
+        ...tokens
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Google Sign In
 exports.googleSignIn = async (req, res, next) => {
   try {
