@@ -117,7 +117,7 @@ const getAllUsers = async (req, res) => {
       bio: user.bio,
       avatar: user.avatar,
       role: user.role,
-      isAdmin: !!user.Admin,
+      isAdmin: !!user.admin,
       expertDetails: user.expertDetails,
       stats: user._count,
       createdAt: user.createdAt,
@@ -153,7 +153,7 @@ const getUserById = async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id },
       include: {
-        Admin: true,
+        admin: true,
         expertDetails: true,
         posts: {
           include: {
@@ -240,7 +240,7 @@ const updateUser = async (req, res) => {
     const user = await prisma.user.findUnique({
       where: { id },
       include: { 
-        Admin: true,
+        admin: true,
         expertDetails: {
           select: {
             id: true,
@@ -259,7 +259,7 @@ const updateUser = async (req, res) => {
     }
 
     // Prevent updating the last admin
-    if (user.Admin && role !== 'ADMIN') {
+    if (user.admin && role !== 'ADMIN') {
       const adminCount = await prisma.admin.count();
       if (adminCount <= 1) {
         throw new AppError(
@@ -348,7 +348,7 @@ const updateUser = async (req, res) => {
         location: location || undefined
       },
       include: {
-        Admin: true,
+        admin: true,
         expertDetails: true
       }
     });
@@ -374,7 +374,7 @@ const deleteUser = async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: { id },
-      include: { Admin: true }
+      include: { admin: true }
     });
 
     if (!user) {
@@ -386,7 +386,7 @@ const deleteUser = async (req, res) => {
     }
 
     // Prevent deleting the last admin
-    if (user.Admin) {
+    if (user.admin) {
       const adminCount = await prisma.admin.count();
       if (adminCount <= 1) {
         throw new AppError(
@@ -400,7 +400,7 @@ const deleteUser = async (req, res) => {
     // Delete user and all related records in a transaction
     await prisma.$transaction([
       // Delete admin record if exists
-      user.Admin 
+      user.admin 
         ? prisma.admin.delete({ where: { userId: id } })
         : prisma.$queryRaw`SELECT 1`,
       // Delete expert details if exists

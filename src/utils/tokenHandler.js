@@ -24,15 +24,27 @@ class TokenHandler {
   static async verifyAccessToken(token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId }
-      });
+      if(decoded.role === 'ADMIN'){
+        const admin = await prisma.admin.findUnique({
+          where: { id: decoded.userId }
+        });
 
-      if (!user) {
-        throw new AppError('User not found', 404);
+        if(!admin){
+          throw new AppError('Admin not found', 404);
+        }
+
+        return { user: admin, decoded };
+      } else {
+        const user = await prisma.user.findUnique({
+          where: { id: decoded.userId }
+        });
+
+        if (!user) {
+          throw new AppError('User not found', 404);
+        }
+
+          return { user, decoded };
       }
-
-      return { user, decoded };
     } catch (error) {
       if (error.name === 'JsonWebTokenError') {
         throw new AppError('Invalid access token', 401);

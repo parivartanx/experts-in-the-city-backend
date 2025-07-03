@@ -8,7 +8,7 @@ const isAdmin = async (req, res, next) => {
     }
 
     const admin = await prisma.admin.findUnique({
-      where: { userId: req.user.id }
+      where: { id: req.user.id }
     });
 
     if (admin) {
