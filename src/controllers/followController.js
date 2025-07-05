@@ -92,6 +92,27 @@ const unfollowExpert = catchAsync(async (req, res) => {
   });
 });
 
+const checkFollowStatus = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const followerId = req.user.id;
+
+  const follow = await prisma.follow.findUnique({
+    where: {
+      followerId_followingId: {
+        followerId,
+        followingId: id
+      }
+    }
+  });
+
+  res.json({
+    status: 'success',
+    data: {
+      isFollowing: !!follow
+    }
+  });
+});
+
 const getFollowers = catchAsync(async (req, res) => {
   const userId = req.user.id;
   const { skip, take, orderBy } = req.queryOptions;
@@ -175,6 +196,7 @@ const getFollowing = catchAsync(async (req, res) => {
 module.exports = {
   followExpert,
   unfollowExpert,
+  checkFollowStatus,
   getFollowers,
   getFollowing
 };
