@@ -210,11 +210,6 @@ const getExpertProfile = catchAsync(async (req, res) => {
           interests: true,
           tags: true,
           location: true,
-          ratings: true,
-          badges: true,
-          progressLevel: true,
-          progressShow: true,
-          reviews: true,
           createdAt: true,
           _count: {
             select: {
@@ -247,22 +242,21 @@ const getExpertProfile = catchAsync(async (req, res) => {
     );
   }
 
-  // Transform the response to include follower and following counts
+  // Transform the response to flatten the structure
   const transformedExpert = {
+    ...expert.user,
     ...expert,
-    user: {
-      ...expert.user,
-      followersCount: expert.user._count.followers,
-      followingCount: expert.user._count.following
-    }
+    followersCount: expert.user._count.followers,
+    followingCount: expert.user._count.following
   };
 
-  // Remove the _count field from the response
-  delete transformedExpert.user._count;
+  // Remove nested user object and _count
+  delete transformedExpert.user;
+  delete transformedExpert._count;
 
   res.json({
     status: 'success',
-    data: { expert: transformedExpert }
+    data: transformedExpert
   });
 });
 
