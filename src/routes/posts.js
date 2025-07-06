@@ -8,14 +8,14 @@ const router = express.Router();
 // List all posts with filters (public)
 router.get('/', queryHandler, postController.listPosts);
 
+// Get posts from following users (protected)
+router.get('/feeds', isAuthenticated, queryHandler, postController.getFollowingPosts);
+
 // Get presigned URL for post image upload
 router.get('/upload-url', isAuthenticated, postController.getUploadUrl);
 
 // Create post (protected)
 router.post('/', isAuthenticated, postController.createPost);
-
-// Add tags to post (protected)
-router.post('/:id/tags', isAuthenticated, postController.addTags);
 
 // Get post by ID (public)
 router.get('/:id', postController.getPost);

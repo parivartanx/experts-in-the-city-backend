@@ -33,6 +33,11 @@ const createPost = catchAsync(async (req, res) => {
     const { title, content, imageKey } = req.body;
     const userId = req.user.id;
 
+    // Check if user is an EXPERT
+    if (req.user.role !== 'EXPERT') {
+      throw { status: 403, message: 'Only experts can create posts' };
+    }
+
     let imageUrl;
     if (imageKey) {
       // Generate a read URL for the uploaded image
@@ -196,6 +201,11 @@ const updatePost = catchAsync(async (req, res) => {
     const { title, content, imageKey } = req.body;
     const userId = req.user.id;
 
+    // Check if user is an EXPERT
+    if (req.user.role !== 'EXPERT') {
+      throw { status: 403, message: 'Only experts can update posts' };
+    }
+
     // Check if post exists and belongs to user
     const existingPost = await prisma.post.findUnique({
       where: { id },
@@ -249,6 +259,11 @@ const deletePost = catchAsync(async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
+    // Check if user is an EXPERT
+    if (req.user.role !== 'EXPERT') {
+      throw { status: 403, message: 'Only experts can delete posts' };
+    }
+
     // Check if post exists and belongs to user
     const existingPost = await prisma.post.findUnique({
       where: { id },
@@ -276,45 +291,105 @@ const deletePost = catchAsync(async (req, res) => {
   }
 });
 
-const addTags = catchAsync(async (req, res) => {
-  const { id } = req.params;
-  const { tags } = req.body;
-  const userId = req.user.id;
+const getFollowingPosts = catchAsync(async (req, res) => {
+  try {
+    const { skip, take, orderBy } = req.queryOptions;
+    const { tag, search, startDate, endDate } = req.query;
+    const userId = req.user.id;
 
-  // Check if post exists and belongs to user
-  const existingPost = await prisma.post.findUnique({
-    where: { id },
-    select: { authorId: true }
-  });
+    // Get the list of users that the current user is following
+    const followingUsers = await prisma.follow.findMany({
+      where: { followerId: userId },
+      select: { followingId: true }
+    });
 
-  if (!existingPost) {
-    throw { status: 404, message: 'Post not found' };
-  }
+    const followingUserIds = followingUsers.map(follow => follow.followingId);
 
-  if (existingPost.authorId !== userId) {
-    throw { status: 403, message: 'You can only add tags to your own posts' };
-  }
+    // Include the current user's own posts along with following users' posts
+    const allUserIds = [...followingUserIds, userId];
 
-  // Create or connect tags
-  const updatedPost = await prisma.post.update({
-    where: { id },
-    data: {
-      tags: {
-        connectOrCreate: tags.map(tag => ({
-          where: { name: tag },
-          create: { name: tag }
-        }))
-      }
-    },
-    include: {
-      tags: true
+    // Build where clause for posts from following users and own posts
+    let where = {
+      authorId: { in: allUserIds },
+      ...req.queryOptions.where
+    };
+
+    // Add tag filter
+    if (tag) {
+      where.tags = {
+        some: {
+          name: tag
+        }
+      };
     }
-  });
 
-  res.json({
-    status: 'success',
-    data: { post: updatedPost }
-  });
+    // Add search filter
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { content: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    // Add date range filter
+    if (startDate || endDate) {
+      where.createdAt = {};
+      
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate);
+      }
+      
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate);
+      }
+    }
+
+    // Get total count for pagination
+    const total = await prisma.post.count({ where });
+
+    const posts = await prisma.post.findMany({
+      where,
+      skip,
+      take,
+      orderBy,
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        _count: {
+          select: {
+            comments: true,
+            likes: true
+          }
+        }
+      }
+    });
+
+    // Add analytics data to each post
+    const postsWithAnalytics = posts.map(post => ({
+      ...post,
+      analytics: {
+        likes: post._count.likes,
+        comments: post._count.comments
+      }
+    }));
+
+    res.json(formatPaginatedResponse(
+      { posts: postsWithAnalytics },
+      total,
+      req.queryOptions.page,
+      req.queryOptions.limit
+    ));
+  } catch (error) {
+    res.status(400).json({
+      status: 'error',
+      message: error.message
+    });
+  }
 });
 
 module.exports = {
@@ -324,5 +399,5 @@ module.exports = {
   listPosts,
   updatePost,
   deletePost,
-  addTags
+  getFollowingPosts
 };
