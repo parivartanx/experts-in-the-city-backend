@@ -178,45 +178,6 @@ const updateProfile = catchAsync(async (req, res) => {
     languages
   } = req.body;
 
-  // Validate location object if provided
-  if (location) {
-    const validLocationFields = ['pincode', 'address', 'country', 'latitude', 'longitude'];
-    const providedFields = Object.keys(location);
-    
-    // Check if all provided fields are valid
-    const invalidFields = providedFields.filter(field => !validLocationFields.includes(field));
-    if (invalidFields.length > 0) {
-      throw new AppError(
-        `Invalid location fields: ${invalidFields.join(', ')}`,
-        HttpStatus.BAD_REQUEST,
-        ErrorCodes.INVALID_INPUT
-      );
-    }
-
-    // Validate latitude and longitude if provided
-    if (location.latitude !== undefined) {
-      const lat = parseFloat(location.latitude);
-      if (isNaN(lat) || lat < -90 || lat > 90) {
-        throw new AppError(
-          'Invalid latitude value. Must be between -90 and 90',
-          HttpStatus.BAD_REQUEST,
-          ErrorCodes.INVALID_INPUT
-        );
-      }
-    }
-
-    if (location.longitude !== undefined) {
-      const lng = parseFloat(location.longitude);
-      if (isNaN(lng) || lng < -180 || lng > 180) {
-        throw new AppError(
-          'Invalid longitude value. Must be between -180 and 180',
-          HttpStatus.BAD_REQUEST,
-          ErrorCodes.INVALID_INPUT
-        );
-      }
-    }
-  }
-
   // Validate expert-specific fields if user is an expert
   if (req.user.role === 'EXPERT') {
     if (experience !== undefined && (typeof experience !== 'number' || experience < 0)) {
