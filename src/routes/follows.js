@@ -15,4 +15,7 @@ router.delete('/:id', followController.unfollowExpert);
 router.get('/followers', followController.getFollowers);
 router.get('/following', followController.getFollowing);
 
+// Check follow status
+router.get('/status/:id', followController.checkFollowStatus);
+
 module.exports = router;
