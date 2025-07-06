@@ -196,7 +196,8 @@ const createExpertProfile = catchAsync(async (req, res) => {
 const getExpertProfile = catchAsync(async (req, res) => {
   const { id } = req.params;
 
-  const expert = await prisma.expertDetails.findUnique({
+  // First try to find by expertDetails id
+  let expert = await prisma.expertDetails.findUnique({
     where: { id },
     include: {
       user: {
@@ -234,12 +235,79 @@ const getExpertProfile = catchAsync(async (req, res) => {
     }
   });
 
+  // If not found in expertDetails, try to find by user id
   if (!expert) {
-    throw new AppError(
-      'Expert profile not found',
-      HttpStatus.NOT_FOUND,
-      ErrorCodes.NOT_FOUND
-    );
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        expertDetails: {
+          include: {
+            certifications: {
+              orderBy: { issueDate: 'desc' }
+            },
+            experiences: {
+              orderBy: { startDate: 'desc' }
+            },
+            awards: {
+              orderBy: { date: 'desc' }
+            },
+            education: {
+              orderBy: { startDate: 'desc' }
+            }
+          }
+        },
+        _count: {
+          select: {
+            followers: true,
+            following: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      throw new AppError(
+        'Profile not found',
+        HttpStatus.NOT_FOUND,
+        ErrorCodes.NOT_FOUND
+      );
+    }
+
+    // If user is not an expert, return error
+    if (user.role !== 'EXPERT') {
+      throw new AppError(
+        'User is not an expert',
+        HttpStatus.BAD_REQUEST,
+        ErrorCodes.INVALID_INPUT
+      );
+    }
+
+    // If user doesn't have expert details, return error
+    if (!user.expertDetails) {
+      throw new AppError(
+        'Expert profile not found',
+        HttpStatus.NOT_FOUND,
+        ErrorCodes.NOT_FOUND
+      );
+    }
+
+    // Transform user-based result to match expert-based structure
+    expert = {
+      ...user.expertDetails,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        bio: user.bio,
+        role: user.role,
+        interests: user.interests,
+        tags: user.tags,
+        location: user.location,
+        createdAt: user.createdAt,
+        _count: user._count
+      }
+    };
   }
 
   // Transform the response to flatten the structure
