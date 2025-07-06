@@ -39,167 +39,123 @@ const getUserById = catchAsync(async (req, res, next) => {
 
 // protected controller
 const getProfile = catchAsync(async (req, res) => {
-  // First get the user to check their role
-  const userWithRole = await prisma.user.findUnique({
-    where: { id: req.user.id },
-    select: { role: true }
-  });
-
-  // Base select object for all users
-  const baseSelect = {
-    id: true,
-    email: true,
-    name: true,
-    role: true,
-    bio: true,
-    avatar: true,
-    interests: true,
-    tags: true,
-    location: true,
-    createdAt: true,
-    updatedAt: true,
-    posts: {
-      select: {
-        id: true,
-        title: true,
-        content: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            likes: true,
-            comments: true
-          }
-        }
-      }
-    },
-    followers: {
-      select: {
-        id: true,
-        follower: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-            role: true
-          }
-        },
-        createdAt: true
-      }
-    },
-    following: {
-      select: {
-        id: true,
-        following: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-            role: true
-          }
-        },
-        createdAt: true
-      }
-    },
-    _count: {
-      select: {
-        posts: true,
-        followers: true,
-        following: true,
-        comments: true,
-        likes: true
-      }
-    }
-  };
-
-  // Add expert details only if user is an EXPERT
-  if (userWithRole.role === 'EXPERT') {
-    baseSelect.expertDetails = {
-      select: {
-        id: true,
-        headline: true,
-        summary: true,
-        expertise: true,
-        experience: true,
-        hourlyRate: true,
-        about: true,
-        availability: true,
-        languages: true,
-        verified: true,
-        badges: true,
-        progressLevel: true,
-        progressShow: true,
-        ratings: true,
-        createdAt: true,
-        updatedAt: true,
-        certifications: {
-          select: {
-            id: true,
-            name: true,
-            issuingOrganization: true,
-            issueDate: true,
-            expiryDate: true,
-            credentialId: true,
-            credentialUrl: true,
-            createdAt: true,
-            updatedAt: true
-          }
-        },
-        experiences: {
-          select: {
-            id: true,
-            title: true,
-            company: true,
-            location: true,
-            startDate: true,
-            endDate: true,
-            isCurrent: true,
-            description: true,
-            skills: true,
-            createdAt: true,
-            updatedAt: true
-          }
-        },
-        awards: {
-          select: {
-            id: true,
-            title: true,
-            issuer: true,
-            date: true,
-            description: true,
-            createdAt: true,
-            updatedAt: true
-          }
-        },
-        education: {
-          select: {
-            id: true,
-            school: true,
-            degree: true,
-            fieldOfStudy: true,
-            startDate: true,
-            endDate: true,
-            isCurrent: true,
-            description: true,
-            grade: true,
-            activities: true,
-            createdAt: true,
-            updatedAt: true
-          }
-        }
-      }
-    };
-  }
-
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
-    select: baseSelect
+    include: {
+      posts: {
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          image: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              likes: true,
+              comments: true
+            }
+          }
+        }
+      },
+      followers: {
+        select: {
+          id: true,
+          follower: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+              role: true
+            }
+          },
+          createdAt: true
+        }
+      },
+      following: {
+        select: {
+          id: true,
+          following: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+              role: true
+            }
+          },
+          createdAt: true
+        }
+      },
+      expertDetails: {
+        include: {
+          certifications: {
+            orderBy: { issueDate: 'desc' }
+          },
+          experiences: {
+            orderBy: { startDate: 'desc' }
+          },
+          awards: {
+            orderBy: { date: 'desc' }
+          },
+          education: {
+            orderBy: { startDate: 'desc' }
+          }
+        }
+      },
+      _count: {
+        select: {
+          posts: true,
+          followers: true,
+          following: true,
+          comments: true,
+          likes: true
+        }
+      }
+    }
   });
+
+  if (!user) {
+    throw new AppError(
+      'User profile not found',
+      HttpStatus.NOT_FOUND,
+      ErrorCodes.NOT_FOUND
+    );
+  }
+
+  // Transform the response to flatten the structure if user is an expert
+  let transformedUser = { ...user };
+  
+  if (user.role === 'EXPERT' && user.expertDetails) {
+    transformedUser = {
+      ...user,
+      ...user.expertDetails,
+      followersCount: user._count.followers,
+      followingCount: user._count.following,
+      postsCount: user._count.posts,
+      commentsCount: user._count.comments,
+      likesCount: user._count.likes
+    };
+    
+    // Remove nested objects
+    delete transformedUser.expertDetails;
+    delete transformedUser._count;
+  } else {
+    // For regular users, just add the counts
+    transformedUser = {
+      ...user,
+      followersCount: user._count.followers,
+      followingCount: user._count.following,
+      postsCount: user._count.posts,
+      commentsCount: user._count.comments,
+      likesCount: user._count.likes
+    };
+    
+    delete transformedUser._count;
+  }
 
   res.json({
     status: 'success',
-    data: { user }
+    data: { user: transformedUser }
   });
 });
 
@@ -211,15 +167,20 @@ const updateProfile = catchAsync(async (req, res) => {
     interests,
     tags,
     location,
+    // Expert-specific fields
+    headline,
+    summary,
     expertise,
     experience,
     hourlyRate,
-    about
+    about,
+    availability,
+    languages
   } = req.body;
 
   // Validate location object if provided
   if (location) {
-    const validLocationFields = ['pincode', 'address', 'country'];
+    const validLocationFields = ['pincode', 'address', 'country', 'latitude', 'longitude'];
     const providedFields = Object.keys(location);
     
     // Check if all provided fields are valid
@@ -256,6 +217,41 @@ const updateProfile = catchAsync(async (req, res) => {
     }
   }
 
+  // Validate expert-specific fields if user is an expert
+  if (req.user.role === 'EXPERT') {
+    if (experience !== undefined && (typeof experience !== 'number' || experience < 0)) {
+      throw new AppError(
+        'Experience must be a non-negative number',
+        HttpStatus.BAD_REQUEST,
+        ErrorCodes.INVALID_INPUT
+      );
+    }
+
+    if (hourlyRate !== undefined && (typeof hourlyRate !== 'number' || hourlyRate < 0)) {
+      throw new AppError(
+        'Hourly rate must be a non-negative number',
+        HttpStatus.BAD_REQUEST,
+        ErrorCodes.INVALID_INPUT
+      );
+    }
+
+    if (expertise !== undefined && !Array.isArray(expertise)) {
+      throw new AppError(
+        'Expertise must be an array of strings',
+        HttpStatus.BAD_REQUEST,
+        ErrorCodes.INVALID_INPUT
+      );
+    }
+
+    if (languages !== undefined && !Array.isArray(languages)) {
+      throw new AppError(
+        'Languages must be an array of strings',
+        HttpStatus.BAD_REQUEST,
+        ErrorCodes.INVALID_INPUT
+      );
+    }
+  }
+
   // Update user profile
   const updatedUser = await prisma.user.update({
     where: { id: req.user.id },
@@ -271,29 +267,65 @@ const updateProfile = catchAsync(async (req, res) => {
         expertDetails: {
           upsert: {
             create: {
+              headline: headline || null,
+              summary: summary || null,
               expertise: expertise || [],
               experience: experience || 0,
               hourlyRate: hourlyRate || 0,
-              about: about || ''
+              about: about || '',
+              availability: availability || null,
+              languages: languages || []
             },
             update: {
+              headline: headline || undefined,
+              summary: summary || undefined,
               expertise: expertise || undefined,
               experience: experience || undefined,
               hourlyRate: hourlyRate || undefined,
-              about: about || undefined
+              about: about || undefined,
+              availability: availability || undefined,
+              languages: languages || undefined
             }
           }
         }
       })
     },
     include: {
-      expertDetails: true
+      expertDetails: {
+        include: {
+          certifications: {
+            orderBy: { issueDate: 'desc' }
+          },
+          experiences: {
+            orderBy: { startDate: 'desc' }
+          },
+          awards: {
+            orderBy: { date: 'desc' }
+          },
+          education: {
+            orderBy: { startDate: 'desc' }
+          }
+        }
+      }
     }
   });
 
+  // Transform the response to match getProfile structure
+  let transformedUser = { ...updatedUser };
+  
+  if (updatedUser.role === 'EXPERT' && updatedUser.expertDetails) {
+    transformedUser = {
+      ...updatedUser,
+      ...updatedUser.expertDetails
+    };
+    
+    // Remove nested objects
+    delete transformedUser.expertDetails;
+  }
+
   res.json({
     status: 'success',
-    data: { user: updatedUser }
+    data: { user: transformedUser }
   });
 });
 
