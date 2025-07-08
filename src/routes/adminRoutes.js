@@ -18,6 +18,16 @@ const {
   deleteExpert
 } = require('../controllers/adminController');
 
+const {
+  getAllNotifications,
+  createNotification,
+  updateNotification,
+  deleteNotificationAdmin,
+  getNotificationById,
+  bulkDeleteNotifications,
+  bulkMarkAsRead
+} = require('../controllers/notificationController');
+
 
 // Apply admin middleware to all routes
 router.use(isAuthenticated, isAdmin);
@@ -42,5 +52,15 @@ router.get('/experts', getAllExperts);
 router.get('/experts/:id', getExpertById);
 router.patch('/experts/:id', updateExpert);
 router.delete('/experts/:id', deleteExpert);
+
+
+// Notification Management
+router.get('/notifications', getAllNotifications);
+router.get('/notifications/:id', getNotificationById);
+router.post('/notifications', createNotification);
+router.patch('/notifications/:id', updateNotification);
+router.delete('/notifications/:id', deleteNotificationAdmin);
+router.delete('/notifications/bulk', bulkDeleteNotifications);
+router.patch('/notifications/bulk/read', bulkMarkAsRead);
 
 module.exports = router;

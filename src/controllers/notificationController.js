@@ -64,7 +64,7 @@ const markAsRead = catchAsync(async (req, res) => {
       throw { status: 403, message: 'Not authorized to update this notification' };
     }
 
-    await prisma.notification.update({
+    const updatedNotification = await prisma.notification.update({
       where: { id },
       data: { isRead: true }
     });
@@ -122,9 +122,305 @@ const deleteNotification = catchAsync(async (req, res) => {
     });
 });
 
+// ADMIN
+
+const getAllNotifications = catchAsync(async (req, res) => {
+    const { skip, take, orderBy } = req.queryOptions;
+
+    // Get total count for pagination
+    const total = await prisma.notification.count({ 
+      where: req.queryOptions.where 
+    });
+
+    const notifications = await prisma.notification.findMany({
+      where: req.queryOptions.where,
+      skip,
+      take,
+      orderBy,
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        post: {
+          select: {
+            id: true,
+            title: true,
+            content: true
+          }
+        }
+      }
+    });
+
+    res.json(formatPaginatedResponse(
+      { notifications },
+      total,
+      req.queryOptions.page,
+      req.queryOptions.limit
+    ));
+});
+
+const createNotification = catchAsync(async (req, res) => {
+    const { recipientId, type, title, message, postId, senderId } = req.body;
+
+    // Validate required fields
+    if (!recipientId || !type || !title || !message) {
+      throw { status: 400, message: 'recipientId, type, title, and message are required' };
+    }
+
+    // Check if recipient exists
+    const recipient = await prisma.user.findUnique({
+      where: { id: recipientId }
+    });
+
+    if (!recipient) {
+      throw { status: 404, message: 'Recipient not found' };
+    }
+
+    // Check if sender exists (if provided)
+    if (senderId) {
+      const sender = await prisma.user.findUnique({
+        where: { id: senderId }
+      });
+
+      if (!sender) {
+        throw { status: 404, message: 'Sender not found' };
+      }
+    }
+
+    // Check if post exists (if provided)
+    if (postId) {
+      const post = await prisma.post.findUnique({
+        where: { id: postId }
+      });
+
+      if (!post) {
+        throw { status: 404, message: 'Post not found' };
+      }
+    }
+
+    const notification = await prisma.notification.create({
+      data: {
+        recipientId,
+        type,
+        title,
+        message,
+        postId,
+        senderId: senderId || null,
+        isRead: false
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        post: {
+          select: {
+            id: true,
+            title: true,
+            content: true
+          }
+        }
+      }
+    });
+
+    res.status(201).json({
+      status: 'success',
+      data: { notification }
+    });
+});
+
+const updateNotification = catchAsync(async (req, res) => {
+    const { id } = req.params;
+    const { type, title, message, isRead } = req.body;
+
+    // Check if notification exists
+    const existingNotification = await prisma.notification.findUnique({
+      where: { id }
+    });
+
+    if (!existingNotification) {
+      throw { status: 404, message: 'Notification not found' };
+    }
+
+    // Prepare update data
+    const updateData = {};
+    if (type !== undefined) updateData.type = type;
+    if (title !== undefined) updateData.title = title;
+    if (message !== undefined) updateData.message = message;
+    if (isRead !== undefined) updateData.isRead = isRead;
+
+    const updatedNotification = await prisma.notification.update({
+      where: { id },
+      data: updateData,
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        post: {
+          select: {
+            id: true,
+            title: true,
+            content: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { notification: updatedNotification }
+    });
+});
+
+const deleteNotificationAdmin = catchAsync(async (req, res) => {
+    const { id } = req.params;
+
+    // Check if notification exists
+    const notification = await prisma.notification.findUnique({
+      where: { id }
+    });
+
+    if (!notification) {
+      throw { status: 404, message: 'Notification not found' };
+    }
+
+    await prisma.notification.delete({
+      where: { id }
+    });
+
+    res.json({
+      status: 'success',
+      message: 'Notification deleted successfully'
+    });
+});
+
+const getNotificationById = catchAsync(async (req, res) => {
+    const { id } = req.params;
+
+    const notification = await prisma.notification.findUnique({
+      where: { id },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true
+          }
+        },
+        post: {
+          select: {
+            id: true,
+            title: true,
+            content: true
+          }
+        }
+      }
+    });
+
+    if (!notification) {
+      throw { status: 404, message: 'Notification not found' };
+    }
+
+    res.json({
+      status: 'success',
+      data: { notification }
+    });
+});
+
+const bulkDeleteNotifications = catchAsync(async (req, res) => {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      throw { status: 400, message: 'ids array is required and must not be empty' };
+    }
+
+    // Check if all notifications exist
+    const existingNotifications = await prisma.notification.findMany({
+      where: { id: { in: ids } }
+    });
+
+    if (existingNotifications.length !== ids.length) {
+      throw { status: 404, message: 'Some notifications not found' };
+    }
+
+    await prisma.notification.deleteMany({
+      where: { id: { in: ids } }
+    });
+
+    res.json({
+      status: 'success',
+      message: `${ids.length} notifications deleted successfully`
+    });
+});
+
+const bulkMarkAsRead = catchAsync(async (req, res) => {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      throw { status: 400, message: 'ids array is required and must not be empty' };
+    }
+
+    await prisma.notification.updateMany({
+      where: { id: { in: ids } },
+      data: { isRead: true }
+    });
+
+    res.json({
+      status: 'success',
+      message: `${ids.length} notifications marked as read`
+    });
+});
+
 module.exports = {
   getNotifications,
   markAsRead,
   markAllAsRead,
-  deleteNotification
+  deleteNotification,
+  // Admin functions
+  getAllNotifications,
+  createNotification,
+  updateNotification,
+  deleteNotificationAdmin,
+  getNotificationById,
+  bulkDeleteNotifications,
+  bulkMarkAsRead
 };
