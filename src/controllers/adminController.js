@@ -5,46 +5,269 @@ const prisma = new PrismaClient();
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
   try {
-    const stats = await prisma.$transaction([
-      prisma.user.count(),
+    // Get all basic counts in a single transaction
+    const [
+      totalUsers,
+      totalExperts,
+      totalPosts,
+      totalReviews,
+      totalCategories,
+      totalSubcategories
+    ] = await prisma.$transaction([
+      prisma.user.count({ where: { role: 'USER' } }),
+      prisma.user.count({ where: { role: 'EXPERT' } }),
       prisma.post.count(),
-      prisma.comment.count(),
-      prisma.expertDetails.count(),
-      prisma.like.count(),
-      prisma.follow.count()
+      prisma.sessionReview.count(),
+      prisma.category.count(),
+      prisma.subcategory.count()
     ]);
 
-    // Get recent activity (last 7 days)
+    // User role distribution
+    const userRoleStats = await prisma.user.groupBy({
+      by: ['role'],
+      _count: { role: true }
+    });
+    const allRoles = ['USER', 'EXPERT', 'ADMIN'];
+    const roleCounts = {};
+    allRoles.forEach(role => roleCounts[role] = 0);
+    (Array.isArray(userRoleStats) ? userRoleStats : []).forEach(stat => {
+      roleCounts[stat.role] = stat._count.role;
+    });
+
+    // Expert progress level distribution
+    const expertProgressStats = await prisma.expertDetails.groupBy({
+      by: ['progressLevel'],
+      _count: { progressLevel: true }
+    });
+
+    // Badge distribution
+    const expertBadgeStats = await prisma.expertDetails.findMany({ select: { badges: true } });
+    const badgeCounts = {};
+    (Array.isArray(expertBadgeStats) ? expertBadgeStats : []).forEach(expert => {
+      (expert.badges || []).forEach(badge => {
+        badgeCounts[badge] = (badgeCounts[badge] || 0) + 1;
+      });
+    });
+
+    // Category stats
+    const categoryStats = await prisma.category.findMany({
+      include: { _count: { select: { subcategories: true } } }
+    });
+    const categoryStatsMapped = (Array.isArray(categoryStats) ? categoryStats : []).map(category => ({
+      name: category.name,
+      subcategoryCount: category._count.subcategories
+    }));
+
+    // Recent activity (last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
     const recentActivity = await prisma.$transaction([
-      prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+      prisma.user.count({ where: { role: 'USER', createdAt: { gte: sevenDaysAgo } } }),
       prisma.post.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
       prisma.comment.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-      prisma.follow.count({ where: { createdAt: { gte: sevenDaysAgo } } })
+      prisma.follow.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+      prisma.sessionReview.count({ where: { createdAt: { gte: sevenDaysAgo } } })
     ]);
 
+    // Get top performing experts (limited to 10)
+    const topExperts = await prisma.expertDetails.findMany({
+      select: {
+        id: true,
+        headline: true,
+        ratings: true,
+        experience: true,
+        hourlyRate: true,
+        user: {
+          select: {
+            name: true,
+            avatar: true
+          }
+        },
+        reviews: {
+          select: {
+            id: true
+          }
+        }
+      },
+      where: { ratings: { gt: 0 } },
+      orderBy: [
+        { ratings: 'desc' }
+      ],
+      take: 10
+    });
+
+    // Process top experts to include review count
+    const processedTopExperts = topExperts.map(expert => ({
+      id: expert.id,
+      name: expert.user.name,
+      avatar: expert.user.avatar,
+      headline: expert.headline,
+      rating: expert.ratings,
+      experience: expert.experience,
+      hourlyRate: expert.hourlyRate,
+      reviewCount: expert.reviews.length
+    })).sort((a, b) => {
+      // Sort by rating first, then by review count
+      if (b.rating !== a.rating) {
+        return b.rating - a.rating;
+      }
+      return b.reviewCount - a.reviewCount;
+    });
+
+    // Get expertise distribution (optimized)
+    const expertiseStats = await prisma.expertDetails.findMany({
+      select: { expertise: true },
+      take: 1000 // Limit to prevent memory issues
+    });
+
+    const expertiseCounts = {};
+    expertiseStats.forEach(expert => {
+      expert.expertise.forEach(skill => {
+        expertiseCounts[skill] = (expertiseCounts[skill] || 0) + 1;
+      });
+    });
+
+    const sortedExpertise = Object.entries(expertiseCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 10)
+      .map(([skill, count]) => ({ skill, count }));
+
+    expertBadgeStats.forEach(expert => {
+      expert.badges.forEach(badge => {
+        badgeCounts[badge] = (badgeCounts[badge] || 0) + 1;
+      });
+    });
+
+    // Monthly-wise count of EXPERT vs USER for last 6 months
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5); // include current month
+    sixMonthsAgo.setDate(1); // start from the first day of the month
+
+    const usersLast6Months = await prisma.user.findMany({
+      where: { createdAt: { gte: sixMonthsAgo } },
+      select: { role: true, createdAt: true }
+    });
+
+    // Helper to get YYYY-MM in UTC
+    const getMonthUTC = date => {
+      const year = date.getUTCFullYear();
+      const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+      return `${year}-${month}`;
+    };
+
+    // Build months array for last 6 months including current month (UTC)
+    const months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      months.push(getMonthUTC(d));
+    }
+
+    // Initialize result
+    const monthlyUserExpertCounts = months.map(month => ({
+      month,
+      USER: 0,
+      EXPERT: 0
+    }));
+
+    // Aggregate
+    usersLast6Months.forEach(user => {
+      const month = getMonthUTC(new Date(user.createdAt));
+      const entry = monthlyUserExpertCounts.find(m => m.month === month);
+      if (entry && (user.role === 'USER' || user.role === 'EXPERT')) {
+        entry[user.role]++;
+      }
+    });
+
+    // Notification statistics
+    const notificationStats = await prisma.notification.groupBy({
+      by: ['type'],
+      _count: { type: true }
+    });
+
+    // Review satisfaction statistics
+    const satisfactionStats = await prisma.sessionReview.groupBy({
+      by: ['satisfaction'],
+      _count: { satisfaction: true }
+    });
+
+    // Average rating
+    const averageRating = await prisma.sessionReview.aggregate({
+      _avg: { rating: true }
+    });
+
+    // Verified experts count
+    const verifiedExpertsCount = await prisma.expertDetails.count({
+      where: { verified: true }
+    });
+
+    // Hourly rate stats
+    const hourlyRateStats = await prisma.expertDetails.aggregate({
+      _avg: { hourlyRate: true },
+      _min: { hourlyRate: true },
+      _max: { hourlyRate: true }
+    });
+
+    // Remove engagementMetrics from the response
     res.json({
       status: 'success',
       data: {
         totalStats: {
-          totalUsers: stats[0],
-          totalPosts: stats[2],
-          totalComments: stats[3],
-          totalExperts: stats[4],
-          totalLikes: stats[5],
-          totalFollows: stats[6]
+          totalUsers,
+          totalPosts,
+          totalExperts,
+          totalReviews,
+          totalCategories,
+          totalSubcategories
         },
         recentActivity: {
           newUsers: recentActivity[0],
           newPosts: recentActivity[1],
           newComments: recentActivity[2],
-          newFollows: recentActivity[3]
+          newFollows: recentActivity[3],
+          newReviews: recentActivity[4]
+        },
+        userDistribution: {
+          byRole: Object.entries(roleCounts).map(([role, count]) => ({
+            role,
+            count
+          })),
+          byProgressLevel: (Array.isArray(expertProgressStats) ? expertProgressStats : []).map(stat => ({
+            level: stat.progressLevel,
+            count: stat._count.progressLevel
+          }))
+        },
+        badgeDistribution: Object.entries(badgeCounts).map(([badge, count]) => ({
+          badge,
+          count
+        })),
+        topExperts: processedTopExperts,
+        notificationStats: (Array.isArray(notificationStats) ? notificationStats : []).map(stat => ({
+          type: stat.type,
+          count: stat._count.type
+        })),
+        reviewStats: {
+          averageRating: Math.round(((averageRating?._avg?.rating || 0) * 10)) / 10,
+          satisfactionDistribution: (Array.isArray(satisfactionStats) ? satisfactionStats : []).map(stat => ({
+            level: stat.satisfaction,
+            count: stat._count.satisfaction
+          }))
+        },
+        expertiseDistribution: sortedExpertise,
+        categoryStats: categoryStatsMapped,
+        monthlyUserExpertCounts,
+        expertQualityMetrics: {
+          verifiedExperts: verifiedExpertsCount,
+          verifiedPercentage: totalExperts > 0 ? Math.round((verifiedExpertsCount / totalExperts) * 100) : 0,
+          averageHourlyRate: Math.round(((hourlyRateStats?._avg?.hourlyRate || 0) * 100)) / 100,
+          minHourlyRate: hourlyRateStats?._min?.hourlyRate || 0,
+          maxHourlyRate: hourlyRateStats?._max?.hourlyRate || 0,
+          totalExperts
         }
       }
     });
   } catch (error) {
+    console.error('Dashboard stats error:', error);
     throw new AppError(
       'Failed to fetch dashboard statistics',
       HttpStatus.INTERNAL_SERVER_ERROR,

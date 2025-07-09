@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const isAuthenticated = require('../middleware/auth');
 const isAdmin = require('../middleware/adminMiddleware');
+const { queryHandler } = require('../middleware/queryHandler');
 const {
   getDashboardStats,
   getAllUsers,
@@ -31,6 +32,12 @@ const {
 
 // Apply admin middleware to all routes
 router.use(isAuthenticated, isAdmin);
+
+// Apply query handler to routes that need pagination/filtering
+router.use('/users', queryHandler);
+router.use('/posts', queryHandler);
+router.use('/experts', queryHandler);
+router.use('/notifications', queryHandler);
 
 // Dashboard
 router.get('/dashboard-stats', getDashboardStats);

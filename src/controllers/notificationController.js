@@ -30,13 +30,6 @@ const getNotifications = catchAsync(async (req, res) => {
             avatar: true
           }
         },
-        post: {
-          select: {
-            id: true,
-            title: true,
-            content: true
-          }
-        }
       }
     });
 
@@ -64,9 +57,9 @@ const markAsRead = catchAsync(async (req, res) => {
       throw { status: 403, message: 'Not authorized to update this notification' };
     }
 
-    const updatedNotification = await prisma.notification.update({
+    const updatedNotification =     await prisma.notification.update({
       where: { id },
-      data: { isRead: true }
+      data: { read: true }
     });
 
     res.json({
@@ -81,7 +74,7 @@ const markAllAsRead = async (req, res) => {
 
     await prisma.notification.updateMany({
       where: { recipientId: userId },
-      data: { isRead: true }
+      data: { read: true }
     });
 
     res.json({
@@ -152,13 +145,6 @@ const getAllNotifications = catchAsync(async (req, res) => {
             avatar: true
           }
         },
-        post: {
-          select: {
-            id: true,
-            title: true,
-            content: true
-          }
-        }
       }
     });
 
@@ -171,11 +157,11 @@ const getAllNotifications = catchAsync(async (req, res) => {
 });
 
 const createNotification = catchAsync(async (req, res) => {
-    const { recipientId, type, title, message, postId, senderId } = req.body;
+    const { recipientId, type, content, senderId } = req.body;
 
     // Validate required fields
-    if (!recipientId || !type || !title || !message) {
-      throw { status: 400, message: 'recipientId, type, title, and message are required' };
+    if (!recipientId || !type || !content) {
+      throw { status: 400, message: 'recipientId, type, and content are required' };
     }
 
     // Check if recipient exists
@@ -198,26 +184,13 @@ const createNotification = catchAsync(async (req, res) => {
       }
     }
 
-    // Check if post exists (if provided)
-    if (postId) {
-      const post = await prisma.post.findUnique({
-        where: { id: postId }
-      });
-
-      if (!post) {
-        throw { status: 404, message: 'Post not found' };
-      }
-    }
-
     const notification = await prisma.notification.create({
       data: {
         recipientId,
         type,
-        title,
-        message,
-        postId,
+        content,
         senderId: senderId || null,
-        isRead: false
+        read: false
       },
       include: {
         sender: {
@@ -233,13 +206,6 @@ const createNotification = catchAsync(async (req, res) => {
             name: true,
             avatar: true
           }
-        },
-        post: {
-          select: {
-            id: true,
-            title: true,
-            content: true
-          }
         }
       }
     });
@@ -252,7 +218,7 @@ const createNotification = catchAsync(async (req, res) => {
 
 const updateNotification = catchAsync(async (req, res) => {
     const { id } = req.params;
-    const { type, title, message, isRead } = req.body;
+    const { type, content, read } = req.body;
 
     // Check if notification exists
     const existingNotification = await prisma.notification.findUnique({
@@ -266,9 +232,8 @@ const updateNotification = catchAsync(async (req, res) => {
     // Prepare update data
     const updateData = {};
     if (type !== undefined) updateData.type = type;
-    if (title !== undefined) updateData.title = title;
-    if (message !== undefined) updateData.message = message;
-    if (isRead !== undefined) updateData.isRead = isRead;
+    if (content !== undefined) updateData.content = content;
+    if (read !== undefined) updateData.read = read;
 
     const updatedNotification = await prisma.notification.update({
       where: { id },
@@ -286,13 +251,6 @@ const updateNotification = catchAsync(async (req, res) => {
             id: true,
             name: true,
             avatar: true
-          }
-        },
-        post: {
-          select: {
-            id: true,
-            title: true,
-            content: true
           }
         }
       }
@@ -346,13 +304,6 @@ const getNotificationById = catchAsync(async (req, res) => {
             avatar: true
           }
         },
-        post: {
-          select: {
-            id: true,
-            title: true,
-            content: true
-          }
-        }
       }
     });
 
@@ -401,7 +352,7 @@ const bulkMarkAsRead = catchAsync(async (req, res) => {
 
     await prisma.notification.updateMany({
       where: { id: { in: ids } },
-      data: { isRead: true }
+      data: { read: true }
     });
 
     res.json({
