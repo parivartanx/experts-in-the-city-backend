@@ -9,9 +9,32 @@ const createComment = catchAsync(async (req, res) => {
     const { content } = req.body;
     const userId = req.user.id;
 
+    // Validate content
+    if (!content || content.trim().length === 0) {
+      throw { status: 400, message: 'Comment content is required' };
+    }
+
+    // Check if post exists
+    const post = await prisma.post.findUnique({
+      where: { id: postId }
+    });
+
+    if (!post) {
+      throw { status: 404, message: 'Post not found' };
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw { status: 404, message: 'User not found' };
+    }
+
     const comment = await prisma.comment.create({
       data: {
-        content,
+        content: content.trim(),
         postId,
         authorId: userId
       },
@@ -35,6 +58,15 @@ const createComment = catchAsync(async (req, res) => {
 const getComments = catchAsync(async (req, res) => {
     const { id: postId } = req.params;
     const { skip, take, orderBy } = req.queryOptions;
+
+    // Check if post exists
+    const post = await prisma.post.findUnique({
+      where: { id: postId }
+    });
+
+    if (!post) {
+      throw { status: 404, message: 'Post not found' };
+    }
 
     const where = { 
       ...req.queryOptions.where,
@@ -86,6 +118,20 @@ const createReply = catchAsync(async (req, res) => {
     const { content } = req.body;
     const userId = req.user.id;
 
+    // Validate content
+    if (!content || content.trim().length === 0) {
+      throw { status: 400, message: 'Reply content is required' };
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw { status: 404, message: 'User not found' };
+    }
+
     // First get the parent comment to get the postId
     const parentComment = await prisma.comment.findUnique({
       where: { id: commentId }
@@ -97,7 +143,7 @@ const createReply = catchAsync(async (req, res) => {
 
     const reply = await prisma.reply.create({
       data: {
-        content,
+        content: content.trim(),
         commentId,
         authorId: userId
       },
@@ -121,6 +167,15 @@ const createReply = catchAsync(async (req, res) => {
 const getReplies = catchAsync(async (req, res) => {
     const { id: commentId } = req.params;
     const { skip, take, orderBy } = req.queryOptions;
+
+    // Check if parent comment exists
+    const parentComment = await prisma.comment.findUnique({
+      where: { id: commentId }
+    });
+
+    if (!parentComment) {
+      throw { status: 404, message: 'Parent comment not found' };
+    }
 
     const where = { 
       ...req.queryOptions.where,
@@ -173,14 +228,14 @@ const deleteComment = catchAsync(async (req, res) => {
     }
 
     // Delete comment and its replies in a transaction
-    await prisma.$transaction(async (prisma) => {
+    await prisma.$transaction(async (tx) => {
       // First delete all replies
-      await prisma.reply.deleteMany({
+      await tx.reply.deleteMany({
         where: { commentId: id }
       });
 
       // Then delete the comment itself
-      await prisma.comment.delete({
+      await tx.comment.delete({
         where: { id }
       });
     });
@@ -222,6 +277,11 @@ const updateComment = catchAsync(async (req, res) => {
     const { content } = req.body;
     const userId = req.user.id;
 
+    // Validate content
+    if (!content || content.trim().length === 0) {
+      throw { status: 400, message: 'Comment content is required' };
+    }
+
     const existingComment = await prisma.comment.findUnique({
       where: { id },
       select: { authorId: true }
@@ -237,7 +297,7 @@ const updateComment = catchAsync(async (req, res) => {
 
     const comment = await prisma.comment.update({
       where: { id },
-      data: { content },
+      data: { content: content.trim() },
       include: {
         author: {
           select: {
@@ -260,6 +320,11 @@ const updateReply = catchAsync(async (req, res) => {
     const { content } = req.body;
     const userId = req.user.id;
 
+    // Validate content
+    if (!content || content.trim().length === 0) {
+      throw { status: 400, message: 'Reply content is required' };
+    }
+
     const existingReply = await prisma.reply.findUnique({
       where: { id },
       select: { authorId: true }
@@ -275,7 +340,7 @@ const updateReply = catchAsync(async (req, res) => {
 
     const reply = await prisma.reply.update({
       where: { id },
-      data: { content },
+      data: { content: content.trim() },
       include: {
         author: {
           select: {

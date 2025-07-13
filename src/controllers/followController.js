@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { formatPaginatedResponse } = require('../middleware/queryHandler');
 const { catchAsync } = require('../middleware/errorHandler');
+const { AppError, ErrorCodes, HttpStatus } = require('../utils/errors');
 
 const prisma = new PrismaClient();
 
@@ -10,16 +11,35 @@ const followExpert = catchAsync(async (req, res) => {
 
   // Prevent self-following
   if (followerId === id) {
-    throw { status: 400, message: 'Cannot follow yourself' };
+    throw new AppError(
+      'Cannot follow yourself',
+      HttpStatus.BAD_REQUEST,
+      ErrorCodes.INVALID_INPUT
+    );
   }
 
-  // Check if expert exists
+  // Check if expert exists and is actually an expert
   const expertToFollow = await prisma.user.findUnique({
-    where: { id }
+    where: { id },
+    include: {
+      expertDetails: true
+    }
   });
 
   if (!expertToFollow) {
-    throw { status: 404, message: 'Expert not found' };
+    throw new AppError(
+      'User not found',
+      HttpStatus.NOT_FOUND,
+      ErrorCodes.NOT_FOUND
+    );
+  }
+
+  if (expertToFollow.role !== 'EXPERT') {
+    throw new AppError(
+      'Can only follow experts',
+      HttpStatus.BAD_REQUEST,
+      ErrorCodes.INVALID_INPUT
+    );
   }
 
   // Check if already following
@@ -33,7 +53,11 @@ const followExpert = catchAsync(async (req, res) => {
   });
 
   if (existingFollow) {
-    throw { status: 400, message: 'Already following this expert' };
+    throw new AppError(
+      'Already following this expert',
+      HttpStatus.BAD_REQUEST,
+      ErrorCodes.INVALID_INPUT
+    );
   }
 
   // Create follow relationship and notification in a transaction
@@ -48,7 +72,8 @@ const followExpert = catchAsync(async (req, res) => {
           select: {
             id: true,
             name: true,
-            avatar: true
+            avatar: true,
+            role: true
           }
         }
       }
@@ -77,6 +102,24 @@ const unfollowExpert = catchAsync(async (req, res) => {
   const { id } = req.params;
   const followerId = req.user.id;
 
+  // Check if follow relationship exists
+  const existingFollow = await prisma.follow.findUnique({
+    where: {
+      followerId_followingId: {
+        followerId,
+        followingId: id
+      }
+    }
+  });
+
+  if (!existingFollow) {
+    throw new AppError(
+      'Not following this expert',
+      HttpStatus.BAD_REQUEST,
+      ErrorCodes.INVALID_INPUT
+    );
+  }
+
   await prisma.follow.delete({
     where: {
       followerId_followingId: {
@@ -95,6 +138,19 @@ const unfollowExpert = catchAsync(async (req, res) => {
 const checkFollowStatus = catchAsync(async (req, res) => {
   const { id } = req.params;
   const followerId = req.user.id;
+
+  // Validate that the user being checked exists
+  const userToCheck = await prisma.user.findUnique({
+    where: { id }
+  });
+
+  if (!userToCheck) {
+    throw new AppError(
+      'User not found',
+      HttpStatus.NOT_FOUND,
+      ErrorCodes.NOT_FOUND
+    );
+  }
 
   const follow = await prisma.follow.findUnique({
     where: {
@@ -117,6 +173,19 @@ const getFollowers = catchAsync(async (req, res) => {
   const userId = req.user.id;
   const { skip, take, orderBy } = req.queryOptions;
 
+  // Validate that the user exists
+  const user = await prisma.user.findUnique({
+    where: { id: userId }
+  });
+
+  if (!user) {
+    throw new AppError(
+      'User not found',
+      HttpStatus.NOT_FOUND,
+      ErrorCodes.NOT_FOUND
+    );
+  }
+
   // Get total count for pagination
   const total = await prisma.follow.count({
     where: { followingId: userId }
@@ -132,7 +201,8 @@ const getFollowers = catchAsync(async (req, res) => {
         select: {
           id: true,
           name: true,
-          avatar: true
+          avatar: true,
+          role: true
         }
       }
     }
@@ -142,6 +212,7 @@ const getFollowers = catchAsync(async (req, res) => {
     id: follow.follower.id,
     name: follow.follower.name,
     avatar: follow.follower.avatar,
+    role: follow.follower.role,
     followedAt: follow.createdAt
   }));
 
@@ -156,6 +227,19 @@ const getFollowers = catchAsync(async (req, res) => {
 const getFollowing = catchAsync(async (req, res) => {
   const userId = req.user.id;
   const { skip, take, orderBy } = req.queryOptions;
+
+  // Validate that the user exists
+  const user = await prisma.user.findUnique({
+    where: { id: userId }
+  });
+
+  if (!user) {
+    throw new AppError(
+      'User not found',
+      HttpStatus.NOT_FOUND,
+      ErrorCodes.NOT_FOUND
+    );
+  }
 
   // Get total count for pagination
   const total = await prisma.follow.count({
@@ -172,7 +256,8 @@ const getFollowing = catchAsync(async (req, res) => {
         select: {
           id: true,
           name: true,
-          avatar: true
+          avatar: true,
+          role: true
         }
       }
     }
@@ -182,6 +267,7 @@ const getFollowing = catchAsync(async (req, res) => {
     id: follow.following.id,
     name: follow.following.name,
     avatar: follow.following.avatar,
+    role: follow.following.role,
     followedAt: follow.createdAt
   }));
 
