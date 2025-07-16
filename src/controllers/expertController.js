@@ -10,13 +10,13 @@ const createExpertProfile = catchAsync(async (req, res) => {
   let userId;
   let user;
   const {
-    name, email, password, bio, avatar, interests, tags, location,
+    name, email, password, phone, bio, avatar, interests, tags, location,
     headline, summary, expertise, experience, hourlyRate, about, availability, languages,
     certifications, experiences, awards, education
   } = req.body;
 
   // If public registration (no req.user, but user fields provided)
-  if (!req.user && email && password && name) {
+  if (!req.user.id && email && password && name) {
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -29,6 +29,7 @@ const createExpertProfile = catchAsync(async (req, res) => {
       data: {
         name,
         email,
+        phone,
         password: hashedPassword,
         bio,
         avatar,

@@ -6,6 +6,7 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { AppError, ErrorCodes, HttpStatus } = require('./utils/errors');
 const routes = require('./routes');
 const rateLimit = require('express-rate-limit');
+const morgan = require("morgan");
 
 // Load environment variables
 dotenv.config();
@@ -39,6 +40,7 @@ app.use(cors({
 
 app.use(express.json());  
 app.use(express.urlencoded({ extended: true }));
+app.use(morgan("dev"));
 
 // Root endpoint
 app.get('/', (req, res) => {
