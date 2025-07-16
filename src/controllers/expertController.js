@@ -7,16 +7,27 @@ const bcrypt = require('bcrypt');
 const prisma = new PrismaClient();
 
 const createExpertProfile = catchAsync(async (req, res) => {
+  // console.log('🔍 DEBUG - Request body:', req.body);
+  // console.log('🔍 DEBUG - req.user:', req.user);
+  // console.log('🔍 DEBUG - req.headers.authorization:', req.headers.authorization);
+  
   let userId;
   let user;
+  // Destructure only the fields needed for expert profile
   const {
     name, email, password, phone, bio, avatar, interests, tags, location,
     headline, summary, expertise, experience, hourlyRate, about, availability, languages,
     certifications, experiences, awards, education
   } = req.body;
 
-  // If public registration (no req.user, but user fields provided)
-  if (!req.user.id && email && password && name) {
+  if (req.user) {
+    // Authenticated user: use their ID, ignore name/email/password from body
+    // console.log('🔍 DEBUG - Authenticated user flow');
+    userId = req.user.id;
+    user = req.user;
+  } else if (email && password && name) {
+    // Public registration: create user
+    // console.log('🔍 DEBUG - Public registration flow');
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -40,11 +51,8 @@ const createExpertProfile = catchAsync(async (req, res) => {
       }
     });
     userId = user.id;
-  } else if (req.user) {
-    // Authenticated user
-    userId = req.user.id;
-    user = req.user;
   } else {
+    // Invalid request
     throw new AppError('Invalid request', HttpStatus.BAD_REQUEST, ErrorCodes.INVALID_INPUT);
   }
 
