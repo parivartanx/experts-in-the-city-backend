@@ -10,6 +10,7 @@ const notificationRoutes = require('./notifications');
 const authRoutes = require('./auth');
 const uploadRoutes = require('./upload');
 const categoryRoutes = require('./categories');
+const sessionReview = require('./sessionReviews');
 
 const router = express.Router();
 
@@ -38,5 +39,6 @@ router.use('/follows', followRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/', categoryRoutes);
+router.use('/feedback', sessionReview);
 
 module.exports = router;
