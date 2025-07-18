@@ -208,6 +208,50 @@ const getDashboardStats = async (req, res) => {
       _max: { hourlyRate: true }
     });
 
+    // Report statistics
+    // 1. Total reports
+    const totalReports = await prisma.report.count();
+
+    // 2. Reports by status
+    const reportStatusStats = await prisma.report.groupBy({
+      by: ['status'],
+      _count: { status: true }
+    });
+    const reportStatusCounts = {};
+    (Array.isArray(reportStatusStats) ? reportStatusStats : []).forEach(stat => {
+      reportStatusCounts[stat.status] = stat._count.status;
+    });
+
+    // 3. Reports by targetType
+    const reportTypeStats = await prisma.report.groupBy({
+      by: ['targetType'],
+      _count: { targetType: true }
+    });
+    const reportTypeCounts = {};
+    (Array.isArray(reportTypeStats) ? reportTypeStats : []).forEach(stat => {
+      reportTypeCounts[stat.targetType] = stat._count.targetType;
+    });
+
+    // 4. Monthly report counts for last 6 months
+    const reportsLast6Months = await prisma.report.findMany({
+      where: { createdAt: { gte: sixMonthsAgo } },
+      select: { createdAt: true }
+    });
+    const monthlyReportCounts = months.map(month => ({
+      month,
+      count: 0
+    }));
+    reportsLast6Months.forEach(report => {
+      const month = getMonthUTC(new Date(report.createdAt));
+      const entry = monthlyReportCounts.find(m => m.month === month);
+      if (entry) entry.count++;
+    });
+
+    // 5. Recent reports (last 7 days)
+    const recentReportsCount = await prisma.report.count({
+      where: { createdAt: { gte: sevenDaysAgo } }
+    });
+
     // Remove engagementMetrics from the response
     res.json({
       status: 'success',
@@ -263,6 +307,14 @@ const getDashboardStats = async (req, res) => {
           minHourlyRate: hourlyRateStats?._min?.hourlyRate || 0,
           maxHourlyRate: hourlyRateStats?._max?.hourlyRate || 0,
           totalExperts
+        },
+        // --- Report statistics ---
+        reportStats: {
+          totalReports,
+          byStatus: Object.entries(reportStatusCounts).map(([status, count]) => ({ status, count })),
+          byTargetType: Object.entries(reportTypeCounts).map(([type, count]) => ({ type, count })),
+          monthlyCounts: monthlyReportCounts,
+          recentReports: recentReportsCount
         }
       }
     });

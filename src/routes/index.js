@@ -11,6 +11,7 @@ const authRoutes = require('./auth');
 const uploadRoutes = require('./upload');
 const categoryRoutes = require('./categories');
 const sessionReview = require('./sessionReviews');
+const reportsRoutes = require('./reports');
 
 const router = express.Router();
 
@@ -40,5 +41,6 @@ router.use('/notifications', notificationRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/', categoryRoutes);
 router.use('/feedback', sessionReview);
+router.use('/reports', reportsRoutes);
 
 module.exports = router;

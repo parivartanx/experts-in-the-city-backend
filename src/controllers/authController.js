@@ -4,6 +4,9 @@ const { getAuth } = require('firebase-admin/auth');
 const bcrypt = require('bcryptjs');
 const { AppError } = require('../utils/errors');
 const TokenHandler = require('../utils/tokenHandler');
+const path = require('path');
+const fs = require('fs');
+const { sendMail } = require('../utils/mailService');
 
 const prisma = new PrismaClient();
 
@@ -52,6 +55,15 @@ exports.register = async (req, res, next) => {
         role: role || 'USER'
       }
     });
+
+    // Send congratulatory email
+    const templatePath = path.join(__dirname, '../utils/emailTemplates/congratulations.html');
+    const html = fs.readFileSync(templatePath, 'utf8');
+    sendMail({
+      to: user.email,
+      subject: 'Welcome to Expert In The City!',
+      html
+    }).catch(console.error);
 
     // Generate tokens
     const tokens = TokenHandler.generateTokens(user.id, user.role);
@@ -152,6 +164,7 @@ exports.googleSignIn = async (req, res, next) => {
       where: { email }
     });
 
+    let isNewUser = false;
     if (!user) {
       user = await prisma.user.create({
         data: {
@@ -162,6 +175,18 @@ exports.googleSignIn = async (req, res, next) => {
           role: 'USER'
         }
       });
+      isNewUser = true;
+    }
+
+    // Send congratulatory email only if new user
+    if (isNewUser) {
+      const templatePath = path.join(__dirname, '../utils/emailTemplates/congratulations.html');
+      const html = fs.readFileSync(templatePath, 'utf8');
+      sendMail({
+        to: user.email,
+        subject: 'Welcome to Expert In The City!',
+        html
+      }).catch(console.error);
     }
 
     // Generate tokens

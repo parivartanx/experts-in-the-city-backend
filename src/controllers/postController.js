@@ -392,6 +392,55 @@ const getFollowingPosts = catchAsync(async (req, res) => {
   }
 });
 
+const reportPost = catchAsync(async (req, res) => {
+  const { postId } = req.params;
+  const { reason } = req.body;
+  const reporterId = req.user.id;
+
+  // Check if post exists
+  const post = await prisma.post.findUnique({ where: { id: postId } });
+  if (!post) {
+    throw { status: 404, message: 'Post not found' };
+  }
+
+  // Prevent duplicate reports by the same user
+  const existingReport = await prisma.report.findFirst({
+    where: { postId, reporterId, targetType: 'POST' }
+  });
+  if (existingReport) {
+    throw { status: 400, message: 'You have already reported this post.' };
+  }
+
+  // Create the report
+  const report = await prisma.report.create({
+    data: {
+      postId,
+      reporterId,
+      reportedUserId: post.authorId, // Set the reported user to the post's author
+      reason,
+      targetType: 'POST'
+    }
+  });
+
+  // Notify all admins
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN' } });
+  const notifications = admins.map(admin => ({
+    type: 'REPORT',
+    content: `A post has been reported. Reason: ${reason}`,
+    recipientId: admin.id,
+    senderId: reporterId
+  }));
+  if (notifications.length > 0) {
+    await prisma.notification.createMany({ data: notifications });
+  }
+
+  res.status(201).json({
+    status: 'success',
+    message: 'Post reported successfully.',
+    data: { report }
+  });
+});
+
 module.exports = {
   getUploadUrl,
   createPost,
@@ -399,5 +448,6 @@ module.exports = {
   listPosts,
   updatePost,
   deletePost,
-  getFollowingPosts
+  getFollowingPosts,
+  reportPost
 };

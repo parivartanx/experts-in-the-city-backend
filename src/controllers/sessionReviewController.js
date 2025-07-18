@@ -101,16 +101,37 @@ const updateExpertRating = async (expertId) => {
         : 0;
 
     const progressLevel = determineProgressLevel(reviewCount, averageRating);
-    const badges = await determineBadges(expertId, reviewCount, averageRating);
+    const newBadges = await determineBadges(expertId, reviewCount, averageRating);
 
+    // Get previous badges
+    const expert = await prisma.expertDetails.findUnique({
+        where: { id: expertId },
+        select: { badges: true, userId: true }
+    });
+    const prevBadges = new Set(expert.badges);
+
+    // Update expert details
     await prisma.expertDetails.update({
         where: { id: expertId },
-        data: { 
+        data: {
             ratings: parseFloat(averageRating.toFixed(1)),
             progressLevel,
-            badges
+            badges: newBadges
         }
     });
+
+    // Notify expert for each new badge earned
+    const earnedBadges = newBadges.filter(badge => !prevBadges.has(badge));
+    for (const badge of earnedBadges) {
+        await prisma.notification.create({
+            data: {
+                type: 'BADGE_EARNED',
+                content: `Congratulations! You have earned the ${badge.replace(/_/g, ' ')} badge.`,
+                recipientId: expert.userId,
+                senderId: null
+            }
+        });
+    }
 };
 
 const createReview = catchAsync(async (req, res) => {

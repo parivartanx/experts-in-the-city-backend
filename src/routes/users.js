@@ -12,4 +12,7 @@ router.patch('/profile', isAuthenticated, userController.updateProfile);
 router.get('/', userController.getAllUsers);
 router.get('/:id', userController.getUserById);
 
+// Report a user (protected)
+router.post('/:userId/report', isAuthenticated, userController.reportUser);
+
 module.exports = router;

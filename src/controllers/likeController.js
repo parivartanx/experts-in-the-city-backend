@@ -38,9 +38,26 @@ const likePost = catchAsync(async (req, res) => {
           name: true,
           avatar: true
         }
+      },
+      post: {
+        select: {
+          authorId: true
+        }
       }
     }
   });
+
+  // Notify post author if not self-like
+  if (like.post.authorId !== userId) {
+    await prisma.notification.create({
+      data: {
+        type: 'LIKE',
+        content: `${like.user.name} liked your post`,
+        recipientId: like.post.authorId,
+        senderId: userId
+      }
+    });
+  }
 
   res.status(201).json({
     status: 'success',

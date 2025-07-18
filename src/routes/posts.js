@@ -26,4 +26,7 @@ router.patch('/:id', isAuthenticated, postController.updatePost);
 // Delete post (protected)
 router.delete('/:id', isAuthenticated, postController.deletePost);
 
+// Report a post (protected)
+router.post('/:postId/report', isAuthenticated, postController.reportPost);
+
 module.exports = router;

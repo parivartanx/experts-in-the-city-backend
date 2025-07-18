@@ -5,9 +5,13 @@ const { catchAsync } = require('../middleware/errorHandler');
 const prisma = new PrismaClient();
 
 const createComment = catchAsync(async (req, res) => {
-    const { id: postId } = req.params;
+    const { postId } = req.params;
     const { content } = req.body;
     const userId = req.user.id;
+
+    if (!postId) {
+      throw { status: 400, message: 'Post ID is required' };
+    }
 
     // Validate content
     if (!content || content.trim().length === 0) {
@@ -16,7 +20,8 @@ const createComment = catchAsync(async (req, res) => {
 
     // Check if post exists
     const post = await prisma.post.findUnique({
-      where: { id: postId }
+      where: { id: postId },
+      select: { authorId: true }
     });
 
     if (!post) {
@@ -25,7 +30,8 @@ const createComment = catchAsync(async (req, res) => {
 
     // Check if user exists
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      select: { name: true }
     });
 
     if (!user) {
@@ -49,6 +55,18 @@ const createComment = catchAsync(async (req, res) => {
       }
     });
 
+    // Notify post author if not self-comment
+    if (post.authorId !== userId) {
+      await prisma.notification.create({
+        data: {
+          type: 'COMMENT',
+          content: `${user.name} commented on your post`,
+          recipientId: post.authorId,
+          senderId: userId
+        }
+      });
+    }
+
     res.status(201).json({
       status: 'success',
       data: { comment }
@@ -56,8 +74,13 @@ const createComment = catchAsync(async (req, res) => {
 });
 
 const getComments = catchAsync(async (req, res) => {
-    const { id: postId } = req.params;
+    console.log(req.params)
+    const { postId } = req.params;
     const { skip, take, orderBy } = req.queryOptions;
+
+    if (!postId) {
+      throw { status: 400, message: 'Post ID is required' };
+    }
 
     // Check if post exists
     const post = await prisma.post.findUnique({
@@ -114,7 +137,7 @@ const getComments = catchAsync(async (req, res) => {
 });
 
 const createReply = catchAsync(async (req, res) => {
-    const { id: commentId } = req.params;
+    const { commentId } = req.params;
     const { content } = req.body;
     const userId = req.user.id;
 
@@ -165,7 +188,7 @@ const createReply = catchAsync(async (req, res) => {
 });
 
 const getReplies = catchAsync(async (req, res) => {
-    const { id: commentId } = req.params;
+    const { commentId } = req.params;
     const { skip, take, orderBy } = req.queryOptions;
 
     // Check if parent comment exists
@@ -209,11 +232,11 @@ const getReplies = catchAsync(async (req, res) => {
 });
 
 const deleteComment = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const { commentId } = req.params;
     const userId = req.user.id;
 
     const comment = await prisma.comment.findUnique({
-      where: { id },
+      where: { id: commentId },
       include: {
         replies: true
       }
@@ -231,12 +254,12 @@ const deleteComment = catchAsync(async (req, res) => {
     await prisma.$transaction(async (tx) => {
       // First delete all replies
       await tx.reply.deleteMany({
-        where: { commentId: id }
+        where: { commentId }
       });
 
       // Then delete the comment itself
       await tx.comment.delete({
-        where: { id }
+        where: { id: commentId }
       });
     });
 
@@ -247,7 +270,7 @@ const deleteComment = catchAsync(async (req, res) => {
 });
 
 const deleteReply = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const { replyId: id } = req.params;
     const userId = req.user.id;
 
     const reply = await prisma.reply.findUnique({
@@ -273,7 +296,7 @@ const deleteReply = catchAsync(async (req, res) => {
 });
 
 const updateComment = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const { commentId: id } = req.params;
     const { content } = req.body;
     const userId = req.user.id;
 
@@ -316,7 +339,7 @@ const updateComment = catchAsync(async (req, res) => {
 });
 
 const updateReply = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const { replyId: id } = req.params;
     const { content } = req.body;
     const userId = req.user.id;
 

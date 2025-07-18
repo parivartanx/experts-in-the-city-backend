@@ -348,11 +348,64 @@ const deleteAccount = catchAsync(async (req, res) => {
   });
 });
 
+const reportUser = catchAsync(async (req, res) => {
+  const { userId } = req.params;
+  const { reason } = req.body;
+  const reporterId = req.user.id;
+
+  if (userId === reporterId) {
+    throw new AppError('You cannot report yourself.', HttpStatus.BAD_REQUEST, ErrorCodes.INVALID_INPUT);
+  }
+
+  // Check if user exists
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new AppError('User not found', HttpStatus.NOT_FOUND, ErrorCodes.NOT_FOUND);
+  }
+
+  // Prevent duplicate reports by the same user
+  const existingReport = await prisma.report.findFirst({
+    where: { reportedUserId: userId, reporterId, targetType: 'USER' }
+  });
+  if (existingReport) {
+    throw new AppError('You have already reported this user.', HttpStatus.BAD_REQUEST, ErrorCodes.INVALID_INPUT);
+  }
+
+  // Create the report
+  const report = await prisma.report.create({
+    data: {
+      reportedUserId: userId,
+      reporterId,
+      reason,
+      targetType: 'USER'
+    }
+  });
+
+  // Notify all admins
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN' } });
+  const notifications = admins.map(admin => ({
+    type: 'REPORT',
+    content: `A user has been reported. Reason: ${reason}`,
+    recipientId: admin.id,
+    senderId: reporterId
+  }));
+  if (notifications.length > 0) {
+    await prisma.notification.createMany({ data: notifications });
+  }
+
+  res.status(201).json({
+    status: 'success',
+    message: 'User reported successfully.',
+    data: { report }
+  });
+});
+
 module.exports = {
   getAllUsers,
   getUserById,
   getProfile,
   updateProfile,
   changePassword,
-  deleteAccount
+  deleteAccount,
+  reportUser
 };

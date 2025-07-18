@@ -44,6 +44,7 @@ enum NotificationType {
   MESSAGE_SCHEDULE
   BADGE_EARNED
   SUGGESTION
+  REPORT
   OTHER
 }
 
@@ -53,6 +54,11 @@ enum SatisfactionLevel {
   NEUTRAL
   SATISFIED
   VERY_SATISFIED
+}
+
+enum ReportTargetType {
+  POST
+  USER
 }
 
 model Admin {
@@ -93,6 +99,8 @@ model User {
   notifications     Notification[]      @relation("ReceivedNotifications")
   sentNotifications Notification[]      @relation("SentNotifications")
   admin             Admin?
+  reportsMade       Report[]            @relation("Reporter")
+  reportsReceived   Report[]            @relation("ReportedUser")
 
   @@index([email])
 }
@@ -202,6 +210,7 @@ model Post {
   tags        Tag[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  reports     Report[]
 
   @@index([authorId])
 }
@@ -322,4 +331,23 @@ model Subcategory {
 
   @@unique([name, categoryId])
   @@index([categoryId])
+}
+
+model Report {
+  id              String           @id @default(uuid())
+  postId          String?
+  post            Post?            @relation(fields: [postId], references: [id])
+  reportedUserId  String?
+  reportedUser    User?            @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  reporterId      String
+  reporter        User             @relation("Reporter", fields: [reporterId], references: [id])
+  reason          String
+  targetType      ReportTargetType
+  status          String           @default("PENDING")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([postId])
+  @@index([reportedUserId])
+  @@index([reporterId])
 }
