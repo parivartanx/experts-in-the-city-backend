@@ -18,7 +18,7 @@ const followUser = catchAsync(async (req, res) => {
     );
   }
 
-  // Check if expert exists and is actually an expert
+  // Check if user exists and is actually an expert
   const expertToFollow = await prisma.user.findUnique({
     where: { id },
   });
