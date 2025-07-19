@@ -86,22 +86,7 @@ const getProfile = catchAsync(async (req, res) => {
           createdAt: true
         }
       },
-      expertDetails: {
-        include: {
-          certifications: {
-            orderBy: { issueDate: 'desc' }
-          },
-          experiences: {
-            orderBy: { startDate: 'desc' }
-          },
-          awards: {
-            orderBy: { date: 'desc' }
-          },
-          education: {
-            orderBy: { startDate: 'desc' }
-          }
-        }
-      },
+      expertDetails: true,
       _count: {
         select: {
           posts: true,
