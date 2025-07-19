@@ -8,18 +8,73 @@ const prisma = new PrismaClient();
 
 // public controller
 const getAllUsers = catchAsync(async (req, res, next) => {
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      avatar: true,
-      bio: true,
-      role: true,
-      createdAt: true,
+  const {
+    page = 1,
+    limit = 10,
+    search,
+    role,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    startDate,
+    endDate
+  } = req.query;
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const take = parseInt(limit);
+
+  // Build where clause
+  const where = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { expertDetails: { expertise: { has: search } } },
+      { location: { path: ['city'], string_contains: search, mode: 'insensitive' } },
+      { location: { path: ['state'], string_contains: search, mode: 'insensitive' } },
+      { location: { path: ['country'], string_contains: search, mode: 'insensitive' } }
+    ];
+  }
+  if (role) {
+    where.role = role;
+  }
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) where.createdAt.gte = new Date(startDate);
+    if (endDate) where.createdAt.lte = new Date(endDate);
+  }
+
+  // Get users and total count
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+        bio: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { [sortBy]: sortOrder },
+      skip,
+      take
+    }),
+    prisma.user.count({ where })
+  ]);
+
+  res.json({
+    status: 'success',
+    data: {
+      users,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: take,
+        pages: Math.ceil(total / take)
+      }
     }
   });
-  res.json({ status: 'success', data: { users } });
 });
 
 const getUserById = catchAsync(async (req, res, next) => {
