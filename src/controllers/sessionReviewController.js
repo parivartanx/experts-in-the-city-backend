@@ -135,17 +135,28 @@ const updateExpertRating = async (expertId) => {
 };
 
 const createReview = catchAsync(async (req, res) => {
-    const { expertId } = req.params;
+    const { userId } = req.params;
     const { rating, satisfaction, remarks, sessionId } = req.body;
     const reviewerId = req.user.id;
 
-    // Check if expert exists
-    const expert = await prisma.expertDetails.findUnique({
-        where: { id: expertId }
+    // Get expertDetails using userId to find expertId
+    const expertDetails = await prisma.expertDetails.findUnique({
+        where: { userId },
+        select: { id: true }
+    });
+
+    if (!expertDetails) {
+        throw { status: 404, message: 'Expert not found' };
+    }
+    const expertId = expertDetails.id;
+
+    // Check if expert user exists
+    const expert = await prisma.user.findUnique({
+        where: { id: userId }
     });
 
     if (!expert) {
-        throw { status: 404, message: 'Expert not found' };
+        throw { status: 404, message: 'Expert user not found' };
     }
 
     // Check if user has already reviewed this expert
@@ -304,9 +315,20 @@ const getUserReviews = catchAsync(async (req, res) => {
 });
 
 const updateReview = catchAsync(async (req, res) => {
-    const { id } = req.params;
+    const { id, userId } = req.params;
     const { rating, satisfaction, remarks } = req.body;
-    const userId = req.user.id;
+    const user_id = req.user.id;
+
+    // Get expertDetails using userId to find expertId
+    const expertDetails = await prisma.expertDetails.findUnique({
+        where: { userId },
+        select: { id: true }
+    });
+
+    if (!expertDetails) {
+        throw { status: 404, message: 'Expert not found' };
+    }
+    const expertId = expertDetails.id;
 
     const existingReview = await prisma.sessionReview.findUnique({
         where: { id }
@@ -316,7 +338,7 @@ const updateReview = catchAsync(async (req, res) => {
         throw { status: 404, message: 'Review not found' };
     }
 
-    if (existingReview.reviewerId !== userId) {
+    if (existingReview.reviewerId !== user_id) {
         throw { status: 403, message: 'You can only update your own reviews' };
     }
 
@@ -339,7 +361,7 @@ const updateReview = catchAsync(async (req, res) => {
     });
 
     // Update expert's average rating, progress level, and badges
-    await updateExpertRating(existingReview.expertId);
+    await updateExpertRating(expertId);
 
     res.json({
         status: 'success',

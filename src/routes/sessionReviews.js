@@ -8,10 +8,10 @@ const router = express.Router();
 router.use(isAuthenticated);
 
 // Create a review for an expert
-router.post('/expert/:expertId', sessionReviewController.createReview);
+router.post('/expert/:userId', sessionReviewController.createReview);
 
 // Get all reviews for an expert
-router.get('/expert/:expertId', sessionReviewController.getExpertReviews);
+router.get('/expert/:userId', sessionReviewController.getExpertReviews);
 
 // Get all reviews given by the current user
 router.get('/user', sessionReviewController.getUserReviews);
