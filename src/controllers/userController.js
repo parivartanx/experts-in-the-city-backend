@@ -54,6 +54,7 @@ const getAllUsers = catchAsync(async (req, res, next) => {
         avatar: true,
         bio: true,
         role: true,
+        location: true,
         createdAt: true,
         expertDetails: {
           select: {
