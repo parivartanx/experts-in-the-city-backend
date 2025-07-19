@@ -53,12 +53,14 @@ const getAllUsers = catchAsync(async (req, res, next) => {
         email: true,
         avatar: true,
         bio: true,
-        interests: true,
-        location: true,
         role: true,
-        "expertDetails.headline": true,
-        "expertDetails.expertise": true,
         createdAt: true,
+        expertDetails: {
+          select: {
+            headline: true,
+            expertise: true
+          }
+        }
       },
       orderBy: { [sortBy]: sortOrder },
       skip,
