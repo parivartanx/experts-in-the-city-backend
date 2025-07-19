@@ -1,5 +1,5 @@
 const express = require('express');
-const isAuthenticated = require('../middleware/auth');
+const { isAuthenticated } = require('../middleware/auth');
 const { queryHandler } = require('../middleware/queryHandler');
 const postController = require('../controllers/postController');
 

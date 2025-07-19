@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const isAuthenticated = require('../middleware/auth');
+const { isAuthenticated } = require('../middleware/auth');
 const isAdmin = require('../middleware/adminMiddleware');
 const { queryHandler } = require('../middleware/queryHandler');
 const {

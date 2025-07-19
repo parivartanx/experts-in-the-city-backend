@@ -1,5 +1,5 @@
 const express = require('express');
-const isAuthenticated = require('../middleware/auth');
+const { isAuthenticated } = require('../middleware/auth');
 const adminMiddleware = require('../middleware/adminMiddleware');
 const reportController = require('../controllers/reportController');
 

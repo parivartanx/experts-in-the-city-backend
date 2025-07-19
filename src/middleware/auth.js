@@ -2,7 +2,7 @@ const { AppError, ErrorCodes, HttpStatus } = require('../utils/errors');
 const { catchAsync } = require('./errorHandler');
 const TokenHandler = require('../utils/tokenHandler');
 
-const isAuthenticated = catchAsync(async (req, res, next) => {
+const isAuthenticated  = catchAsync(async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   
   if (!token) {

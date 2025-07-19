@@ -1,5 +1,5 @@
 const express = require('express');
-const isAuthenticated = require('../middleware/auth');
+const { isAuthenticated } = require('../middleware/auth');
 const sessionReviewController = require('../controllers/sessionReviewController');
 
 const router = express.Router();
