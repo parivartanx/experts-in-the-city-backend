@@ -78,6 +78,7 @@ const getAllUsers = catchAsync(async (req, res, next) => {
 });
 
 const getUserById = catchAsync(async (req, res, next) => {
+  // Validate that the user being checked exists
   const user = await prisma.user.findUnique({
     where: { id: req.params.id },
     select: {
@@ -134,6 +135,7 @@ const getUserById = catchAsync(async (req, res, next) => {
 
   let isFollowing = false;
   if (req.user && req.user.id !== req.params.id) {
+    // Check if follow relationship exists
     const follow = await prisma.follow.findUnique({
       where: {
         followerId_followingId: {
