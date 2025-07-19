@@ -132,7 +132,20 @@ const getUserById = catchAsync(async (req, res, next) => {
     throw new AppError('User not found', HttpStatus.NOT_FOUND, ErrorCodes.NOT_FOUND);
   }
 
-  res.json({ status: 'success', data: { user } });
+  let isFollowing = false;
+  if (req.user && req.user.id !== req.params.id) {
+    const follow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: req.user.id,
+          followingId: req.params.id
+        }
+      }
+    });
+    isFollowing = !!follow;
+  }
+
+  res.json({ status: 'success', data: { user, isFollowing } });
 });
 
 
