@@ -5,7 +5,7 @@ const { AppError, ErrorCodes, HttpStatus } = require('../utils/errors');
 
 const prisma = new PrismaClient();
 
-const followExpert = catchAsync(async (req, res) => {
+const followUser = catchAsync(async (req, res) => {
   const { id } = req.params;
   const followerId = req.user.id;
 
@@ -21,9 +21,6 @@ const followExpert = catchAsync(async (req, res) => {
   // Check if expert exists and is actually an expert
   const expertToFollow = await prisma.user.findUnique({
     where: { id },
-    include: {
-      expertDetails: true
-    }
   });
 
   if (!expertToFollow) {
@@ -31,14 +28,6 @@ const followExpert = catchAsync(async (req, res) => {
       'User not found',
       HttpStatus.NOT_FOUND,
       ErrorCodes.NOT_FOUND
-    );
-  }
-
-  if (expertToFollow.role !== 'EXPERT') {
-    throw new AppError(
-      'Can only follow experts',
-      HttpStatus.BAD_REQUEST,
-      ErrorCodes.INVALID_INPUT
     );
   }
 
@@ -98,7 +87,7 @@ const followExpert = catchAsync(async (req, res) => {
   });
 });
 
-const unfollowExpert = catchAsync(async (req, res) => {
+const unFollowUser = catchAsync(async (req, res) => {
   const { id } = req.params;
   const followerId = req.user.id;
 
@@ -280,8 +269,8 @@ const getFollowing = catchAsync(async (req, res) => {
 });
 
 module.exports = {
-  followExpert,
-  unfollowExpert,
+  followUser,
+  unFollowUser,
   checkFollowStatus,
   getFollowers,
   getFollowing

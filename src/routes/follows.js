@@ -9,8 +9,8 @@ const router = express.Router();
 router.use(isAuthenticated);
 
 // Follow/Unfollow routes
-router.post('/:id', followController.followExpert);
-router.delete('/:id', followController.unfollowExpert);
+router.post('/:id', followController.followUser);
+router.delete('/:id', followController.unFollowUser);
 
 // Get followers/following lists (with pagination and filtering)
 router.get('/followers', queryHandler, followController.getFollowers);
