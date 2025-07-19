@@ -82,12 +82,56 @@ const getUserById = catchAsync(async (req, res, next) => {
     where: { id: req.params.id },
     select: {
       id: true,
-      name: true,
       email: true,
+      name: true,
+      phone: true,
+      role: true,
+      bio: true,
       avatar: true,
+      interests: true,
+      location: true,
+      expertDetails: {
+        select: {
+          id: true,
+          userId: true,
+          headline: true,
+          summary: true,
+          expertise: true,
+          experience: true,
+          hourlyRate: true,
+          about: true,
+          availability: true,
+          languages: true,
+          verified: true,
+          badges: true,
+          progressLevel: true,
+          progressShow: true,
+          ratings: true,
+          certifications: { orderBy: { issueDate: 'desc' } },
+          experiences: { orderBy: { startDate: 'desc' } },
+          awards: { orderBy: { date: 'desc' } },
+          education: { orderBy: { startDate: 'desc' } },
+          reviews: true
+        }
+      },
       createdAt: true,
+      updatedAt: true,
+      _count: {
+        select: {
+          posts: true,
+          followers: true,
+          following: true,
+          comments: true,
+          likes: true
+        }
+      }
     }
   });
+
+  if (!user) {
+    throw new AppError('User not found', HttpStatus.NOT_FOUND, ErrorCodes.NOT_FOUND);
+  }
+
   res.json({ status: 'success', data: { user } });
 });
 
